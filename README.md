@@ -7,6 +7,7 @@ Site estático multipágina criado a partir da base estratégica da Agência doc
 - Home
 - Sobre nós
 - Produtos
+- Start Digital
 - Blog
 - 13 artigos no blog, incluindo os 10 artigos SEO criados em 19/06/2026
 
@@ -21,6 +22,7 @@ O site é servido por Nginx sem privilégios administrativos, na porta `8080`.
 O pacote inclui:
 
 - cabeçalhos de segurança no `nginx.conf`;
+- rota amigável `/start-digital/` apontando para a página do Start Digital;
 - sitemap e robots;
 - imagens dos artigos em `assets/blog`;
 - página pública de contato de segurança em `security.txt`.

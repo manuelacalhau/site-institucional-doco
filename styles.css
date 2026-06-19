@@ -243,6 +243,11 @@ a {
   padding: 80px 0 110px;
 }
 
+.product-hero {
+  min-height: auto;
+  padding-top: 96px;
+}
+
 .page-hero {
   max-width: none;
   padding: 110px 0 84px;
@@ -381,6 +386,10 @@ h3 {
   background: rgba(255, 134, 0, 0.18);
   border-radius: 50%;
   filter: blur(70px);
+}
+
+.start-console {
+  border-color: rgba(255, 174, 95, 0.24);
 }
 
 .console-top {
@@ -998,6 +1007,37 @@ h3 {
   font-size: 0.78rem;
 }
 
+.deliverables-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.deliverable-card {
+  min-height: 300px;
+  padding: 26px;
+  border-radius: var(--radius);
+}
+
+.deliverable-card span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 44px;
+  place-items: center;
+  color: #07111f;
+  background: var(--accent);
+  border-radius: 13px;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.deliverable-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .comparison {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1266,6 +1306,10 @@ h3 {
   .method-rail {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .deliverables-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -1353,6 +1397,7 @@ h3 {
   .blog-grid,
   .values-grid,
   .comparison,
+  .deliverables-grid,
   .project-strip,
   .footer-grid {
     grid-template-columns: 1fr;
@@ -1406,6 +1451,7 @@ h3 {
   .eyebrow,
   .card-number,
   .icon-box,
+  .deliverable-card span,
   .footer-brand img {
     margin-inline: auto;
   }
