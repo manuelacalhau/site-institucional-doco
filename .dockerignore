@@ -1,0 +1,8 @@
+.git
+.DS_Store
+.env
+.env.*
+*.log
+node_modules
+scripts
+README.md

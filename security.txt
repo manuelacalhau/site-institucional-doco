@@ -1,0 +1,3 @@
+Contact: mailto:manuela@agenciadoco.com.br
+Preferred-Languages: pt-BR
+Canonical: https://agenciadoco.com.br/security.txt
