@@ -4,6 +4,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY index.html sobre.html produtos.html blog.html start-digital.html styles.css app.js tracking.js /usr/share/nginx/html/
 COPY assets /usr/share/nginx/html/assets
 COPY blog /usr/share/nginx/html/blog
+COPY apresentacao-implementacao /usr/share/nginx/html/apresentacao-implementacao
 COPY robots.txt sitemap.xml security.txt /usr/share/nginx/html/
 
 EXPOSE 8080
