@@ -410,12 +410,26 @@
       .brand img { width: 62px; }
       .nav .button { min-height: 40px; padding: 0 15px; font-size: .78rem; }
       .hero { padding: 64px 0 68px; }
-      h1 { margin-inline: auto; font-size: clamp(2.65rem, 13vw, 4rem); text-align: center; }
+      h1 { margin-inline: auto; font-size: clamp(1.82rem, 8vw, 2.15rem); line-height: 1.02; text-align: center; }
       .hero-copy-column, .hero-copy, .section-kicker, .section-title, .section-lead { margin-inline: auto; text-align: center; }
       .hero-copy { font-size: 1rem; }
       .eyebrow { justify-content: center; margin-inline: auto; }
-      .benefit-list { max-width: 540px; margin-inline: auto; }
-      .benefit-list li { grid-template-columns: 1fr; justify-items: center; gap: 8px; text-align: center; }
+      .benefit-list { width: 100%; max-width: 540px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-inline: auto; }
+      .benefit-list li {
+        display: flex;
+        min-height: 118px;
+        padding: 12px 7px;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        border: 1px solid rgba(35, 45, 33, .22);
+        border-radius: 6px;
+        background: rgba(250, 246, 238, .82);
+        font-size: .72rem;
+        line-height: 1.35;
+        text-align: center;
+      }
       .benefit-list .check { margin-top: 0; }
       .hero-actions { align-items: stretch; flex-direction: column; justify-content: center; }
       .hero-actions .button { width: 100%; }
@@ -698,7 +712,7 @@
     <section class="hero" id="inicio">
       <div class="container hero-grid">
         <div class="hero-copy-column">
-          <div class="eyebrow fade-up"><span class="eyebrow-dot"></span>Aula online, ao vivo e gratuita · quarta-feira, 2 de setembro · 20h</div>
+          <div class="eyebrow fade-up"><span class="eyebrow-dot"></span>Aula ao vivo · 2 setembro · 20h</div>
           <h1 class="fade-up">Sua agenda está cheia, mas <em>você ainda</em> não fatura <span class="accent">o quanto gostaria.</span></h1>
           <p class="hero-copy fade-up">Na aula A nova psicologia, eu vou mostrar o que precisa mudar para atrair pacientes particulares mais alinhados, comunicar valor com responsabilidade e planejar a mudança da carteira.</p>
           <ul class="benefit-list fade-up" aria-label="O que você levará da aula">
