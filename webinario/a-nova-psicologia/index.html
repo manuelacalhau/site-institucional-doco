@@ -638,6 +638,43 @@
     .portrait-wrap { border-color: var(--line-bright); border-radius: 999px 999px 8px 8px; background: var(--panel); }
     .portrait-wrap img { filter: none; }
     .about-cta { margin-top: 12px; }
+    .registration-modal {
+      width: min(560px, calc(100% - 32px));
+      max-height: calc(100dvh - 32px);
+      padding: 0;
+      overflow: visible;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      box-shadow: 0 34px 100px rgba(28, 34, 26, .28);
+    }
+    .registration-modal::backdrop {
+      background: rgba(25, 31, 24, .68);
+      backdrop-filter: blur(7px);
+    }
+    .registration-modal .form-card {
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
+    }
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border: 1px solid rgba(35, 45, 33, .28);
+      border-radius: 50%;
+      color: var(--text);
+      background: #f5efe6;
+      font-size: 1.45rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .modal-close:hover { background: #e8e1d6; }
     footer { border-color: rgba(35,45,33,.35); background: #59634f; }
     .footer-inner p { color: #f3ede4; }
     .footer-inner img { width: 108px; filter: none; opacity: 1; }
@@ -670,11 +707,11 @@
             <li><span class="check">✓</span><span>Sem infringir as regras do Conselho.</span></li>
           </ul>
           <div class="hero-actions fade-up">
-            <a class="button" href="#lead-form">Quero me inscrever gratuitamente</a>
+            <a class="button" href="#registration-modal" data-open-registration>Quero me inscrever gratuitamente</a>
           </div>
         </div>
 
-        <form class="form-card fade-up" id="lead-form" action="mailto:contato@agenciadoco.com.br?subject=Inscri%C3%A7%C3%A3o%20gratuita%20%E2%80%94%20A%20nova%20psicologia" method="post" enctype="text/plain" novalidate>
+        <form class="form-card fade-up" id="lead-form" data-registration-form action="mailto:contato@agenciadoco.com.br?subject=Inscri%C3%A7%C3%A3o%20gratuita%20%E2%80%94%20A%20nova%20psicologia" method="post" enctype="text/plain" novalidate>
           <h3>Quero participar gratuitamente</h3>
           <p>Preencha seus dados para receber as orientações de acesso à aula.</p>
           <div class="field-grid">
@@ -688,7 +725,7 @@
             </div>
             <div class="field full">
               <label for="whatsapp">WhatsApp *</label>
-              <input id="whatsapp" name="whatsapp" type="tel" autocomplete="tel" inputmode="tel" placeholder="(11) 99999-9999" required>
+              <input id="whatsapp" name="whatsapp" data-phone type="tel" autocomplete="tel" inputmode="tel" placeholder="(11) 99999-9999" required>
             </div>
           </div>
           <label class="consent" for="consentimento">
@@ -696,7 +733,7 @@
             <span>Autorizo a doco a usar meus dados para organizar minha inscrição e enviar as orientações deste evento.</span>
           </label>
           <button class="button full" type="submit">Confirmar minha inscrição</button>
-          <div class="form-status" id="form-status" role="status" aria-live="polite"></div>
+          <div class="form-status" id="form-status" data-form-status role="status" aria-live="polite"></div>
         </form>
       </div>
     </section>
@@ -757,7 +794,7 @@
           <h2 class="section-title">Eu sou Manuela Calhau.</h2>
           <p>Sou fundadora da doco. Construí minha trajetória entre empreendedorismo, vendas e liderança comercial em projetos de alto padrão em São Paulo.</p>
           <p>Hoje ajudo empresas da saúde a organizar a comunicação, a entrada de novos pacientes, o acompanhamento comercial e os indicadores usados nas decisões. Uso minha formação em marketing e minha experiência em vendas para traduzir estratégia em decisões aplicáveis à operação real.</p>
-          <a class="button about-cta" href="#lead-form">Quero me inscrever gratuitamente</a>
+          <a class="button about-cta" href="#registration-modal" data-open-registration>Quero me inscrever gratuitamente</a>
         </div>
       </div>
     </section>
@@ -795,6 +832,34 @@
       </div>
     </section>
   </main>
+
+  <dialog class="registration-modal" id="registration-modal" aria-labelledby="modal-title">
+    <form class="form-card" data-registration-form action="mailto:contato@agenciadoco.com.br?subject=Inscri%C3%A7%C3%A3o%20gratuita%20%E2%80%94%20A%20nova%20psicologia" method="post" enctype="text/plain" novalidate>
+      <button class="modal-close" type="button" data-close-registration aria-label="Fechar formulário">×</button>
+      <h3 id="modal-title">Quero participar gratuitamente</h3>
+      <p>Preencha seus dados para receber as orientações de acesso à aula.</p>
+      <div class="field-grid">
+        <div class="field full">
+          <label for="modal-nome">Nome completo *</label>
+          <input id="modal-nome" name="nome" type="text" autocomplete="name" placeholder="Como você quer ser chamado" required>
+        </div>
+        <div class="field full">
+          <label for="modal-email">E-mail *</label>
+          <input id="modal-email" name="email" type="email" autocomplete="email" placeholder="voce@email.com" required>
+        </div>
+        <div class="field full">
+          <label for="modal-whatsapp">WhatsApp *</label>
+          <input id="modal-whatsapp" name="whatsapp" data-phone type="tel" autocomplete="tel" inputmode="tel" placeholder="(11) 99999-9999" required>
+        </div>
+      </div>
+      <label class="consent" for="modal-consentimento">
+        <input id="modal-consentimento" name="consentimento" type="checkbox" required>
+        <span>Autorizo a doco a usar meus dados para organizar minha inscrição e enviar as orientações deste evento.</span>
+      </label>
+      <button class="button full" type="submit">Confirmar minha inscrição</button>
+      <div class="form-status" data-form-status role="status" aria-live="polite"></div>
+    </form>
+  </dialog>
 
   <footer>
     <div class="container footer-inner">
@@ -838,36 +903,50 @@
       });
     }
 
-    const phone = document.querySelector('#whatsapp');
-    phone.addEventListener('input', (event) => {
-      const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
-      const area = digits.slice(0, 2);
-      const first = digits.length > 10 ? digits.slice(2, 7) : digits.slice(2, 6);
-      const last = digits.length > 10 ? digits.slice(7) : digits.slice(6);
-      event.target.value = [area && `(${area})`, first, last && `-${last}`].filter(Boolean).join(' ');
+    document.querySelectorAll('[data-phone]').forEach((phone) => {
+      phone.addEventListener('input', (event) => {
+        const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
+        const area = digits.slice(0, 2);
+        const first = digits.length > 10 ? digits.slice(2, 7) : digits.slice(2, 6);
+        const last = digits.length > 10 ? digits.slice(7) : digits.slice(6);
+        event.target.value = [area && `(${area})`, first, last && `-${last}`].filter(Boolean).join(' ');
+      });
     });
 
-    const form = document.querySelector('#lead-form');
-    const status = document.querySelector('#form-status');
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      status.classList.add('show');
-      if (!form.checkValidity()) {
-        status.textContent = 'Confira os campos obrigatórios antes de continuar.';
-        form.reportValidity();
-        return;
-      }
-      const data = new FormData(form);
-      const subject = 'Inscrição gratuita — A nova psicologia';
-      const body = [
-        'Olá, quero me inscrever gratuitamente na aula A nova psicologia.',
-        '',
-        `Nome: ${data.get('nome')}`,
-        `E-mail: ${data.get('email')}`,
-        `WhatsApp: ${data.get('whatsapp')}`
-      ].join('\n');
-      status.textContent = 'Seu aplicativo de e-mail será aberto. Envie a mensagem para concluir a inscrição.';
-      window.location.href = `mailto:contato@agenciadoco.com.br?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    document.querySelectorAll('[data-registration-form]').forEach((form) => {
+      const status = form.querySelector('[data-form-status]');
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        status.classList.add('show');
+        if (!form.checkValidity()) {
+          status.textContent = 'Confira os campos obrigatórios antes de continuar.';
+          form.reportValidity();
+          return;
+        }
+        const data = new FormData(form);
+        const subject = 'Inscrição gratuita — A nova psicologia';
+        const body = [
+          'Olá, quero me inscrever gratuitamente na aula A nova psicologia.',
+          '',
+          `Nome: ${data.get('nome')}`,
+          `E-mail: ${data.get('email')}`,
+          `WhatsApp: ${data.get('whatsapp')}`
+        ].join('\n');
+        status.textContent = 'Seu aplicativo de e-mail será aberto. Envie a mensagem para concluir a inscrição.';
+        window.location.href = `mailto:contato@agenciadoco.com.br?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      });
+    });
+
+    const registrationModal = document.querySelector('#registration-modal');
+    document.querySelectorAll('[data-open-registration]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        registrationModal.showModal();
+      });
+    });
+    document.querySelector('[data-close-registration]').addEventListener('click', () => registrationModal.close());
+    registrationModal.addEventListener('click', (event) => {
+      if (event.target === registrationModal) registrationModal.close();
     });
   </script>
 </body>
