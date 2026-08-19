@@ -155,6 +155,8 @@
       transition: transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
     }
     .button::after { content: "→"; font-size: 1.1em; }
+    .button-label { display: block; line-height: 1.28; }
+    .button.is-multiline { height: auto; padding-top: 16px; padding-bottom: 16px; line-height: 1.28; }
     .button:hover { transform: translateY(-1px); background: #fff8ee; box-shadow: 0 0 0 1px rgba(255,255,255,.2), 0 16px 46px rgba(255,134,0,.28); }
     .button:active { transform: translateY(0) scale(.992); }
     .button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible {
@@ -721,7 +723,7 @@
             <li><span class="check">✓</span><span>Sem infringir as regras do Conselho.</span></li>
           </ul>
           <div class="hero-actions fade-up">
-            <a class="button" href="#registration-modal" data-open-registration>Quero me inscrever gratuitamente</a>
+            <a class="button" href="#registration-modal" data-open-registration><span class="button-label">Quero me inscrever gratuitamente</span></a>
           </div>
         </div>
 
@@ -746,7 +748,7 @@
             <input id="consentimento" name="consentimento" type="checkbox" required>
             <span>Autorizo a doco a usar meus dados para organizar minha inscrição e enviar as orientações deste evento.</span>
           </label>
-          <button class="button full" type="submit">Confirmar minha inscrição</button>
+          <button class="button full" type="submit"><span class="button-label">Confirmar minha inscrição</span></button>
           <div class="form-status" id="form-status" data-form-status role="status" aria-live="polite"></div>
         </form>
       </div>
@@ -808,7 +810,7 @@
           <h2 class="section-title">Eu sou Manuela Calhau.</h2>
           <p>Sou fundadora da doco. Construí minha trajetória entre empreendedorismo, vendas e liderança comercial em projetos de alto padrão em São Paulo.</p>
           <p>Hoje ajudo empresas da saúde a organizar a comunicação, a entrada de novos pacientes, o acompanhamento comercial e os indicadores usados nas decisões. Uso minha formação em marketing e minha experiência em vendas para traduzir estratégia em decisões aplicáveis à operação real.</p>
-          <a class="button about-cta" href="#registration-modal" data-open-registration>Quero me inscrever gratuitamente</a>
+          <a class="button about-cta" href="#registration-modal" data-open-registration><span class="button-label">Quero me inscrever gratuitamente</span></a>
         </div>
       </div>
     </section>
@@ -870,7 +872,7 @@
         <input id="modal-consentimento" name="consentimento" type="checkbox" required>
         <span>Autorizo a doco a usar meus dados para organizar minha inscrição e enviar as orientações deste evento.</span>
       </label>
-      <button class="button full" type="submit">Confirmar minha inscrição</button>
+      <button class="button full" type="submit"><span class="button-label">Confirmar minha inscrição</span></button>
       <div class="form-status" data-form-status role="status" aria-live="polite"></div>
     </form>
   </dialog>
@@ -962,6 +964,17 @@
     registrationModal.addEventListener('click', (event) => {
       if (event.target === registrationModal) registrationModal.close();
     });
+
+    const updateMultilineButtons = () => {
+      document.querySelectorAll('.button').forEach((button) => {
+        const label = button.querySelector('.button-label');
+        if (!label) return;
+        const lineHeight = Number.parseFloat(getComputedStyle(label).lineHeight);
+        button.classList.toggle('is-multiline', label.getBoundingClientRect().height > lineHeight * 1.45);
+      });
+    };
+    document.fonts.ready.then(updateMultilineButtons);
+    window.addEventListener('resize', updateMultilineButtons, { passive: true });
   </script>
 </body>
 </html>
