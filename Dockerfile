@@ -6,6 +6,7 @@ COPY assets /usr/share/nginx/html/assets
 COPY blog /usr/share/nginx/html/blog
 COPY apresentacao-implementacao /usr/share/nginx/html/apresentacao-implementacao
 COPY apresentacao-webinario /usr/share/nginx/html/apresentacao-webinario
+COPY webinario /usr/share/nginx/html/webinario
 COPY robots.txt sitemap.xml security.txt /usr/share/nginx/html/
 
 EXPOSE 8080
