@@ -994,7 +994,58 @@
     });
 
     const registrationEndpoint = 'https://script.google.com/macros/s/AKfycbyoDre2GyEHQYCGZ4fvxDCC7WR86sjXYLEwf7iIsbXHlEj1FOoQheTNrVJ9eOKvovWtnQ/exec';
+    const metaCapiEndpoint = '/api/meta-capi';
     const whatsappGroupUrl = 'https://chat.whatsapp.com/FY2TYaahkIM9yekoEEr9J1';
+
+    const getCookie = (name) => document.cookie
+      .split('; ')
+      .find((cookie) => cookie.startsWith(`${name}=`))
+      ?.split('=')
+      .slice(1)
+      .join('=');
+
+    const sha256 = async (value) => {
+      const normalized = value.trim().toLowerCase();
+      const bytes = new TextEncoder().encode(normalized);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    };
+
+    const sendMetaCapiLead = async (form, eventId) => {
+      if (localStorage.getItem('doco_cookie_consent') !== 'granted') return;
+
+      const formData = new FormData(form);
+      const email = String(formData.get('email') || '');
+      const phone = String(formData.get('whatsapp') || '').replace(/\D/g, '');
+      const userData = {
+        em: email ? [await sha256(email)] : undefined,
+        ph: phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined,
+        fbp: getCookie('_fbp') || undefined,
+        fbc: getCookie('_fbc') || undefined,
+        client_user_agent: navigator.userAgent
+      };
+
+      await fetch(metaCapiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          event_name: 'Lead',
+          event_id: eventId,
+          event_time: Math.floor(Date.now() / 1000),
+          action_source: 'website',
+          event_source_url: window.location.href,
+          advertising_consent: true,
+          test_event_code: 'TEST84789',
+          user_data: userData,
+          custom_data: {
+            content_name: 'A nova psicologia',
+            content_category: 'webinar',
+            status: 'registered'
+          }
+        })
+      });
+    };
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
       const status = form.querySelector('[data-form-status]');
       const formLocation = form.id === 'lead-form' ? 'hero' : 'modal';
@@ -1037,6 +1088,13 @@
             event_category: 'conversion',
             conversion_name: 'webinar_registration',
             form_id: 'webinar_registration', form_location: formLocation, lead_type: 'webinar_registration'
+          });
+          sendMetaCapiLead(form, eventId).catch(() => {
+            window.docoTracking.push('capi_error', {
+              ...trackingContext,
+              event_id: eventId,
+              error_type: 'network'
+            });
           });
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
           form.reset();
