@@ -14,6 +14,30 @@
   <meta property="og:url" content="https://agenciadoco.com.br/webinario/a-nova-psicologia/">
   <title>A nova psicologia | doco</title>
   <script>document.documentElement.classList.add('motion-ready');</script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+    window.gtag('consent', 'default', {
+      ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', wait_for_update: 500
+    });
+    window.docoTracking = {
+      containerId: 'GTM-WJ7MXFDT', loaded: false,
+      load() {
+        if (this.loaded) return;
+        this.loaded = true;
+        window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtm.js?id=${this.containerId}`;
+        document.head.appendChild(script);
+      },
+      push(event, parameters = {}) { window.dataLayer.push({ event, ...parameters }); }
+    };
+    if (localStorage.getItem('doco_cookie_consent') === 'granted') {
+      window.gtag('consent', 'update', { ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });
+      window.docoTracking.load();
+    }
+  </script>
   <style>
     :root {
       --ink: #030712;
@@ -705,6 +729,14 @@
       #para-quem .diagnostic-card:nth-child(6) { grid-column: 4 / span 2; }
       #para-quem .diagnostic-card:nth-child(7) { grid-column: 6 / span 2; }
     }
+    .cookie-consent { position: fixed; right: 18px; bottom: 18px; z-index: 1000; width: min(430px, calc(100% - 36px)); padding: 18px; border: 1px solid rgba(35,45,33,.32); border-radius: 8px; background: #fbf7ef; box-shadow: 0 20px 60px rgba(35,45,33,.22); }
+    .cookie-consent[hidden] { display: none; }
+    .cookie-consent p { margin: 0 0 14px; color: #303a2d; font-size: .82rem; line-height: 1.5; }
+    .cookie-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .cookie-action { min-height: 40px; padding: 0 15px; border: 1px solid #35402f; border-radius: 2px; font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+    .cookie-action.accept { color: #fff; background: #35402f; }
+    .cookie-action.reject { color: #35402f; background: transparent; }
+    @media (max-width: 520px) { .cookie-actions { flex-direction: column-reverse; } .cookie-action { width: 100%; } }
   </style>
 </head>
 <body>
@@ -723,11 +755,11 @@
             <li><span class="check">✓</span><span>Sem infringir as regras do Conselho.</span></li>
           </ul>
           <div class="hero-actions fade-up">
-            <a class="button" href="#registration-modal" data-open-registration><span class="button-label">Quero me inscrever gratuitamente</span></a>
+            <a class="button" href="#registration-modal" data-open-registration data-cta-location="hero"><span class="button-label">Quero me inscrever gratuitamente</span></a>
           </div>
         </div>
 
-        <form class="form-card fade-up" id="lead-form" data-registration-form action="mailto:contato@agenciadoco.com.br?subject=Inscri%C3%A7%C3%A3o%20gratuita%20%E2%80%94%20A%20nova%20psicologia" method="post" enctype="text/plain" novalidate>
+        <form class="form-card fade-up" id="lead-form" data-registration-form novalidate>
           <h3>Quero participar gratuitamente</h3>
           <p>Preencha seus dados para receber as orientações de acesso à aula.</p>
           <div class="field-grid">
@@ -810,7 +842,7 @@
           <h2 class="section-title">Eu sou Manuela Calhau.</h2>
           <p>Sou fundadora da doco. Construí minha trajetória entre empreendedorismo, vendas e liderança comercial em projetos de alto padrão em São Paulo.</p>
           <p>Hoje ajudo empresas da saúde a organizar a comunicação, a entrada de novos pacientes, o acompanhamento comercial e os indicadores usados nas decisões. Uso minha formação em marketing e minha experiência em vendas para traduzir estratégia em decisões aplicáveis à operação real.</p>
-          <a class="button about-cta" href="#registration-modal" data-open-registration><span class="button-label">Quero me inscrever gratuitamente</span></a>
+          <a class="button about-cta" href="#registration-modal" data-open-registration data-cta-location="sobre"><span class="button-label">Quero me inscrever gratuitamente</span></a>
         </div>
       </div>
     </section>
@@ -850,7 +882,7 @@
   </main>
 
   <dialog class="registration-modal" id="registration-modal" aria-labelledby="modal-title">
-    <form class="form-card" data-registration-form action="mailto:contato@agenciadoco.com.br?subject=Inscri%C3%A7%C3%A3o%20gratuita%20%E2%80%94%20A%20nova%20psicologia" method="post" enctype="text/plain" novalidate>
+    <form class="form-card" data-registration-form novalidate>
       <button class="modal-close" type="button" data-close-registration aria-label="Fechar formulário">×</button>
       <h3 id="modal-title">Quero participar gratuitamente</h3>
       <p>Preencha seus dados para receber as orientações de acesso à aula.</p>
@@ -883,8 +915,40 @@
       <p>© 2026 doco. Comunicação responsável, sem promessa de resultados.</p>
     </div>
   </footer>
+  <aside class="cookie-consent" data-cookie-consent hidden aria-label="Preferências de privacidade">
+    <p>Usamos cookies de medição para entender o desempenho desta página e das campanhas. Você pode aceitar ou recusar esse uso.</p>
+    <div class="cookie-actions">
+      <button class="cookie-action reject" type="button" data-consent="denied">Recusar</button>
+      <button class="cookie-action accept" type="button" data-consent="granted">Aceitar</button>
+    </div>
+  </aside>
 
   <script>
+    const trackingContext = { page_type: 'webinar', page_name: 'a_nova_psicologia', funnel_stage: 'lead_capture' };
+    const cookieConsent = document.querySelector('[data-cookie-consent]');
+    const savedConsent = localStorage.getItem('doco_cookie_consent');
+    if (!savedConsent) cookieConsent.hidden = false;
+    document.querySelectorAll('[data-consent]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const granted = button.dataset.consent === 'granted';
+        localStorage.setItem('doco_cookie_consent', granted ? 'granted' : 'denied');
+        window.gtag('consent', 'update', {
+          ad_storage: granted ? 'granted' : 'denied', analytics_storage: granted ? 'granted' : 'denied',
+          ad_user_data: granted ? 'granted' : 'denied', ad_personalization: granted ? 'granted' : 'denied'
+        });
+        if (granted) window.docoTracking.load();
+        cookieConsent.hidden = true;
+      });
+    });
+    const query = new URLSearchParams(window.location.search);
+    const attribution = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].reduce((result, key) => {
+      const value = query.get(key);
+      if (value) sessionStorage.setItem(`doco_${key}`, value);
+      result[key] = value || sessionStorage.getItem(`doco_${key}`) || undefined;
+      return result;
+    }, {});
+    window.docoTracking.push('webinar_view', { ...trackingContext, ...attribution });
+
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const staggerGroups = [
       ['.hero-copy-column > .fade-up', 70],
@@ -929,27 +993,61 @@
       });
     });
 
+    const registrationEndpoint = 'https://script.google.com/macros/s/AKfycbyoDre2GyEHQYCGZ4fvxDCC7WR86sjXYLEwf7iIsbXHlEj1FOoQheTNrVJ9eOKvovWtnQ/exec';
+    const whatsappGroupUrl = 'https://chat.whatsapp.com/FY2TYaahkIM9yekoEEr9J1';
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
       const status = form.querySelector('[data-form-status]');
+      const formLocation = form.id === 'lead-form' ? 'hero' : 'modal';
+      let started = false;
+      let submitting = false;
+      form.addEventListener('input', () => {
+        if (started) return;
+        started = true;
+        window.docoTracking.push('form_start', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation });
+      });
       form.addEventListener('submit', (event) => {
         event.preventDefault();
+        if (submitting) return;
         status.classList.add('show');
         if (!form.checkValidity()) {
+          window.docoTracking.push('form_error', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation, error_type: 'validation' });
           status.textContent = 'Confira os campos obrigatórios antes de continuar.';
           form.reportValidity();
           return;
         }
+        const submitButton = form.querySelector('button[type="submit"]');
         const data = new FormData(form);
-        const subject = 'Inscrição gratuita — A nova psicologia';
-        const body = [
-          'Olá, quero me inscrever gratuitamente na aula A nova psicologia.',
-          '',
-          `Nome: ${data.get('nome')}`,
-          `E-mail: ${data.get('email')}`,
-          `WhatsApp: ${data.get('whatsapp')}`
-        ].join('\n');
-        status.textContent = 'Seu aplicativo de e-mail será aberto. Envie a mensagem para concluir a inscrição.';
-        window.location.href = `mailto:contato@agenciadoco.com.br?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        data.set('pagina', window.location.href);
+        data.set('origem_formulario', formLocation);
+        Object.entries(attribution).forEach(([key, value]) => value && data.set(key, value));
+        data.set('website', '');
+        const eventId = `webinar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        submitting = true;
+        submitButton.disabled = true;
+        status.textContent = 'Enviando sua inscrição...';
+        fetch(registrationEndpoint, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: new URLSearchParams(data),
+          keepalive: true
+        }).then(() => {
+          window.docoTracking.push('lead', {
+            ...trackingContext, ...attribution,
+            event_id: eventId,
+            event_category: 'conversion',
+            conversion_name: 'webinar_registration',
+            form_id: 'webinar_registration', form_location: formLocation, lead_type: 'webinar_registration'
+          });
+          status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
+          form.reset();
+          window.setTimeout(() => window.location.assign(whatsappGroupUrl), 700);
+        }).catch(() => {
+          window.docoTracking.push('form_error', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation, error_type: 'network' });
+          status.textContent = 'Não foi possível concluir agora. Tente novamente em instantes.';
+        }).finally(() => {
+          submitting = false;
+          submitButton.disabled = false;
+        });
       });
     });
 
@@ -957,6 +1055,7 @@
     document.querySelectorAll('[data-open-registration]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
+        window.docoTracking.push('cta_click', { ...trackingContext, cta_name: 'open_registration', cta_location: button.dataset.ctaLocation || 'unknown', destination: 'registration_modal' });
         registrationModal.showModal();
       });
     });
