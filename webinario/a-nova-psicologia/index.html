@@ -22,9 +22,26 @@
     });
     window.docoTracking = {
       containerId: 'GTM-WJ7MXFDT', loaded: false,
+      prepareMetaPixel() {
+        const pixelId = '815401080953791';
+        if (typeof window.fbq !== 'function') {
+          const fbq = function () {
+            if (fbq.callMethod) fbq.callMethod.apply(fbq, arguments);
+            else fbq.queue.push(arguments);
+          };
+          window.fbq = fbq;
+          window._fbq = fbq;
+          fbq.push = fbq;
+          fbq.loaded = true;
+          fbq.version = '2.0';
+          fbq.queue = [];
+        }
+        window.fbq('set', 'autoConfig', false, pixelId);
+      },
       load() {
         if (this.loaded) return;
         this.loaded = true;
+        this.prepareMetaPixel();
         window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
         const script = document.createElement('script');
         script.async = true;
