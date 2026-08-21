@@ -1081,7 +1081,7 @@
           body: new URLSearchParams(data),
           keepalive: true
         }).then(() => {
-          window.docoTracking.push('lead', {
+          window.docoTracking.push('generate_lead', {
             ...trackingContext, ...attribution,
             event_id: eventId,
             event_category: 'conversion',
