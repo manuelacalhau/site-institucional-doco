@@ -1029,18 +1029,19 @@
     };
 
     const sendMetaCapiLead = async (form, eventId) => {
-      if (localStorage.getItem('doco_cookie_consent') !== 'granted') return;
-
+      const advertisingConsent = localStorage.getItem('doco_cookie_consent') === 'granted';
       const formData = new FormData(form);
       const email = String(formData.get('email') || '');
       const phone = String(formData.get('whatsapp') || '').replace(/\D/g, '');
       const userData = {
         em: email ? [await sha256(email)] : undefined,
-        ph: phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined,
-        fbp: getCookie('_fbp') || undefined,
-        fbc: getCookie('_fbc') || undefined,
-        client_user_agent: navigator.userAgent
+        ph: phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined
       };
+      if (advertisingConsent) {
+        userData.fbp = getCookie('_fbp') || undefined;
+        userData.fbc = getCookie('_fbc') || undefined;
+        userData.client_user_agent = navigator.userAgent;
+      }
 
       await fetch(metaCapiEndpoint, {
         method: 'POST',
@@ -1052,7 +1053,7 @@
           event_time: Math.floor(Date.now() / 1000),
           action_source: 'website',
           event_source_url: window.location.href,
-          advertising_consent: true,
+          advertising_consent: advertisingConsent,
           user_data: userData,
           custom_data: {
             content_name: 'A nova psicologia',
