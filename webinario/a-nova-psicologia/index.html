@@ -790,7 +790,7 @@
             </div>
             <div class="field full">
               <label for="whatsapp">WhatsApp *</label>
-              <input id="whatsapp" name="whatsapp" data-phone type="tel" autocomplete="tel" inputmode="tel" placeholder="(11) 99999-9999" required>
+              <input id="whatsapp" name="whatsapp" data-phone type="tel" autocomplete="tel" inputmode="tel" maxlength="19" placeholder="+55 (11) 99999-9999" required>
             </div>
           </div>
           <label class="consent" for="consentimento">
@@ -914,7 +914,7 @@
         </div>
         <div class="field full">
           <label for="modal-whatsapp">WhatsApp *</label>
-          <input id="modal-whatsapp" name="whatsapp" data-phone type="tel" autocomplete="tel" inputmode="tel" placeholder="(11) 99999-9999" required>
+          <input id="modal-whatsapp" name="whatsapp" data-phone type="tel" autocomplete="tel" inputmode="tel" maxlength="19" placeholder="+55 (11) 99999-9999" required>
         </div>
       </div>
       <label class="consent" for="modal-consentimento">
@@ -1002,11 +1002,35 @@
 
     document.querySelectorAll('[data-phone]').forEach((phone) => {
       phone.addEventListener('input', (event) => {
-        const digits = event.target.value.replace(/\D/g, '').slice(0, 11);
-        const area = digits.slice(0, 2);
-        const first = digits.length > 10 ? digits.slice(2, 7) : digits.slice(2, 6);
-        const last = digits.length > 10 ? digits.slice(7) : digits.slice(6);
-        event.target.value = [area && `(${area})`, first, last && `-${last}`].filter(Boolean).join(' ');
+        const rawValue = event.target.value;
+        const digits = rawValue.replace(/\D/g, '').slice(0, 13);
+        const startsWithPlus = rawValue.trim().startsWith('+');
+
+        if (startsWithPlus && !digits.startsWith('55')) {
+          event.target.value = `+${digits.slice(0, 2)}`;
+          return;
+        }
+
+        const hasCountryCode = startsWithPlus || digits.length > 11;
+        const nationalDigits = hasCountryCode && digits.startsWith('55')
+          ? digits.slice(2, 13)
+          : digits.slice(0, 11);
+        const area = nationalDigits.slice(0, 2);
+        const first = nationalDigits.length > 10
+          ? nationalDigits.slice(2, 7)
+          : nationalDigits.slice(2, 6);
+        const last = nationalDigits.length > 10
+          ? nationalDigits.slice(7)
+          : nationalDigits.slice(6);
+        const formattedNational = [
+          area && `(${area})`,
+          first,
+          last && `-${last}`
+        ].filter(Boolean).join(' ');
+
+        event.target.value = hasCountryCode && digits.startsWith('55')
+          ? `+55${formattedNational ? ` ${formattedNational}` : ''}`
+          : formattedNational;
       });
     });
 
