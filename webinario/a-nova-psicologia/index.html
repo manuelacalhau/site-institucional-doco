@@ -964,7 +964,6 @@
       result[key] = value || sessionStorage.getItem(`doco_${key}`) || undefined;
       return result;
     }, {});
-    window.docoTracking.push('webinar_view', { ...trackingContext, ...attribution });
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const staggerGroups = [
@@ -1052,41 +1051,99 @@
       return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     };
 
-    const sendMetaCapiLead = async (form, eventId) => {
+    let capiEventSequence = 0;
+    const createEventId = (eventType) => {
+      capiEventSequence += 1;
+      const randomPart = typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2, 14);
+      return `webinar-${eventType}-${Date.now()}-${capiEventSequence}-${randomPart}`;
+    };
+    const anonymousVisitorSeed = `${Date.now()}-${typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 18)}`;
+    const anonymousExternalId = sha256(anonymousVisitorSeed);
+
+    const buildMetaUserData = async (form) => {
       const advertisingConsent = localStorage.getItem('doco_cookie_consent') === 'granted';
-      const formData = new FormData(form);
-      const email = String(formData.get('email') || '');
-      const phone = String(formData.get('whatsapp') || '').replace(/\D/g, '');
       const userData = {
-        em: email ? [await sha256(email)] : undefined,
-        ph: phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined
+        external_id: [await anonymousExternalId]
       };
+
+      if (form) {
+        const formData = new FormData(form);
+        const email = String(formData.get('email') || '');
+        const phone = String(formData.get('whatsapp') || '').replace(/\D/g, '');
+        userData.em = email ? [await sha256(email)] : undefined;
+        userData.ph = phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined;
+      }
+
       if (advertisingConsent) {
         userData.fbp = getCookie('_fbp') || undefined;
         userData.fbc = getCookie('_fbc') || undefined;
         userData.client_user_agent = navigator.userAgent;
       }
 
-      await fetch(metaCapiEndpoint, {
+      return { advertisingConsent, userData };
+    };
+
+    const sendMetaCapiEvent = async ({ eventName, eventId, customData, form }) => {
+      const { advertisingConsent, userData } = await buildMetaUserData(form);
+
+      const response = await fetch(metaCapiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         body: JSON.stringify({
-          event_name: 'Lead',
+          event_name: eventName,
           event_id: eventId,
           event_time: Math.floor(Date.now() / 1000),
           action_source: 'website',
           event_source_url: window.location.href,
           advertising_consent: advertisingConsent,
           user_data: userData,
-          custom_data: {
-            content_name: 'A nova psicologia',
-            content_category: 'webinar',
-            status: 'registered'
-          }
+          custom_data: customData
         })
       });
+
+      if (!response.ok) throw new Error(`Meta CAPI respondeu com HTTP ${response.status}`);
     };
+
+    const reportCapiError = (eventName, eventId) => {
+      window.docoTracking.push('capi_error', {
+        ...trackingContext,
+        event_id: eventId,
+        capi_event_name: eventName,
+        error_type: 'network'
+      });
+    };
+
+    const pageViewEventId = createEventId('pageview');
+    window.docoTracking.push('webinar_view', {
+      ...trackingContext,
+      ...attribution,
+      event_id: pageViewEventId
+    });
+    sendMetaCapiEvent({
+      eventName: 'PageView',
+      eventId: pageViewEventId,
+      customData: {
+        content_name: 'A nova psicologia',
+        content_category: 'webinar',
+        status: 'page_viewed'
+      }
+    }).catch(() => reportCapiError('PageView', pageViewEventId));
+
+    const sendMetaCapiLead = (form, eventId) => sendMetaCapiEvent({
+      eventName: 'Lead',
+      eventId,
+      form,
+      customData: {
+        content_name: 'A nova psicologia',
+        content_category: 'webinar',
+        status: 'registered'
+      }
+    });
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
       const status = form.querySelector('[data-form-status]');
       const formLocation = form.id === 'lead-form' ? 'hero' : 'modal';
@@ -1130,13 +1187,7 @@
             conversion_name: 'webinar_registration',
             form_id: 'webinar_registration', form_location: formLocation, lead_type: 'webinar_registration'
           });
-          sendMetaCapiLead(form, eventId).catch(() => {
-            window.docoTracking.push('capi_error', {
-              ...trackingContext,
-              event_id: eventId,
-              error_type: 'network'
-            });
-          });
+          sendMetaCapiLead(form, eventId).catch(() => reportCapiError('Lead', eventId));
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
           form.reset();
           window.setTimeout(() => window.location.assign(whatsappGroupUrl), 700);
@@ -1154,7 +1205,24 @@
     document.querySelectorAll('[data-open-registration]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
-        window.docoTracking.push('cta_click', { ...trackingContext, cta_name: 'open_registration', cta_location: button.dataset.ctaLocation || 'unknown', destination: 'registration_modal' });
+        const ctaLocation = button.dataset.ctaLocation || 'unknown';
+        const clickEventId = createEventId('cta');
+        window.docoTracking.push('cta_click', {
+          ...trackingContext,
+          event_id: clickEventId,
+          cta_name: 'open_registration',
+          cta_location: ctaLocation,
+          destination: 'registration_modal'
+        });
+        sendMetaCapiEvent({
+          eventName: 'CTA_Click',
+          eventId: clickEventId,
+          customData: {
+            content_name: 'A nova psicologia',
+            content_category: 'webinar',
+            status: `cta_clicked_${ctaLocation}`
+          }
+        }).catch(() => reportCapiError('CTA_Click', clickEventId));
         registrationModal.showModal();
       });
     });
