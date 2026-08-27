@@ -1051,6 +1051,11 @@
       return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     };
 
+    const escapeSpreadsheetFormula = (value) => {
+      const text = String(value ?? '');
+      return /^\s*[=+\-@]/.test(text) ? `'${text}` : text;
+    };
+
     let capiEventSequence = 0;
     const createEventId = (eventType) => {
       capiEventSequence += 1;
@@ -1170,6 +1175,9 @@
         data.set('origem_formulario', formLocation);
         Object.entries(attribution).forEach(([key, value]) => value && data.set(key, value));
         data.set('website', '');
+        Array.from(data.entries()).forEach(([key, value]) => {
+          if (typeof value === 'string') data.set(key, escapeSpreadsheetFormula(value));
+        });
         const eventId = `webinar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         submitting = true;
         submitButton.disabled = true;
