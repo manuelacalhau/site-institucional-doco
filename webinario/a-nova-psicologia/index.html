@@ -1069,16 +1069,15 @@
       : Math.random().toString(36).slice(2, 18)}`;
     const anonymousExternalId = sha256(anonymousVisitorSeed);
 
-    const buildMetaUserData = async (form) => {
+    const buildMetaUserData = async (leadData) => {
       const advertisingConsent = localStorage.getItem('doco_cookie_consent') === 'granted';
       const userData = {
         external_id: [await anonymousExternalId]
       };
 
-      if (form) {
-        const formData = new FormData(form);
-        const email = String(formData.get('email') || '');
-        const phone = String(formData.get('whatsapp') || '').replace(/\D/g, '');
+      if (leadData) {
+        const email = String(leadData.email || '').trim().toLowerCase();
+        const phone = String(leadData.phone || '').replace(/\D/g, '');
         userData.em = email ? [await sha256(email)] : undefined;
         userData.ph = phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined;
       }
@@ -1092,8 +1091,8 @@
       return { advertisingConsent, userData };
     };
 
-    const sendMetaCapiEvent = async ({ eventName, eventId, customData, form }) => {
-      const { advertisingConsent, userData } = await buildMetaUserData(form);
+    const sendMetaCapiEvent = async ({ eventName, eventId, customData, leadData }) => {
+      const { advertisingConsent, userData } = await buildMetaUserData(leadData);
 
       const response = await fetch(metaCapiEndpoint, {
         method: 'POST',
@@ -1139,10 +1138,10 @@
       }
     }).catch(() => reportCapiError('PageView', pageViewEventId));
 
-    const sendMetaCapiLead = (form, eventId) => sendMetaCapiEvent({
+    const sendMetaCapiLead = (leadData, eventId) => sendMetaCapiEvent({
       eventName: 'Lead',
       eventId,
-      form,
+      leadData,
       customData: {
         content_name: 'A nova psicologia',
         content_category: 'webinar',
@@ -1171,6 +1170,10 @@
         }
         const submitButton = form.querySelector('button[type="submit"]');
         const data = new FormData(form);
+        const leadData = {
+          email: String(data.get('email') || '').trim().toLowerCase(),
+          phone: String(data.get('whatsapp') || '').replace(/\D/g, '')
+        };
         data.set('pagina', window.location.href);
         data.set('origem_formulario', formLocation);
         Object.entries(attribution).forEach(([key, value]) => value && data.set(key, value));
@@ -1178,7 +1181,7 @@
         Array.from(data.entries()).forEach(([key, value]) => {
           if (typeof value === 'string') data.set(key, escapeSpreadsheetFormula(value));
         });
-        const eventId = `webinar-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const eventId = createEventId('lead');
         submitting = true;
         submitButton.disabled = true;
         status.textContent = 'Enviando sua inscrição...';
@@ -1187,7 +1190,7 @@
           mode: 'no-cors',
           body: new URLSearchParams(data),
           keepalive: true
-        }).then(() => {
+        }).then(async () => {
           window.docoTracking.push('generate_lead', {
             ...trackingContext, ...attribution,
             event_id: eventId,
@@ -1195,8 +1198,13 @@
             conversion_name: 'webinar_registration',
             form_id: 'webinar_registration', form_location: formLocation, lead_type: 'webinar_registration'
           });
-          sendMetaCapiLead(form, eventId).catch(() => reportCapiError('Lead', eventId));
+          const capiPromise = sendMetaCapiLead(leadData, eventId)
+            .catch(() => reportCapiError('Lead', eventId));
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
+          await Promise.race([
+            capiPromise,
+            new Promise((resolve) => window.setTimeout(resolve, 1500))
+          ]);
           form.reset();
           window.setTimeout(() => window.location.assign(whatsappGroupUrl), 700);
         }).catch(() => {
