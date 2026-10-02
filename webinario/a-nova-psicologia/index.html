@@ -1175,9 +1175,12 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
         body: mauticData,
-        keepalive: true
+        keepalive: true,
+        redirect: 'manual'
       });
-      if (!response.ok) throw new Error(`Mautic respondeu com HTTP ${response.status}`);
+      if (!response.ok && response.type !== 'opaqueredirect' && response.status !== 0) {
+        throw new Error(`Mautic respondeu com HTTP ${response.status}`);
+      }
     };
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
       const status = form.querySelector('[data-form-status]');
