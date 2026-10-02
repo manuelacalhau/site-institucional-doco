@@ -1036,6 +1036,7 @@
     const registrationEndpoint = 'https://script.google.com/macros/s/AKfycbyoDre2GyEHQYCGZ4fvxDCC7WR86sjXYLEwf7iIsbXHlEj1FOoQheTNrVJ9eOKvovWtnQ/exec';
     const metaCapiEndpoint = '/api/meta-capi';
     const dataCrazyEndpoint = '/api/datacrazy-webinar';
+    const mauticEndpoint = '/api/mautic-webinar';
     const whatsappGroupUrl = 'https://chat.whatsapp.com/HVy0070pwLg14IKKPhZbJA';
 
     const getCookie = (name) => document.cookie
@@ -1161,6 +1162,23 @@
       });
       if (!response.ok) throw new Error(`DataCrazy respondeu com HTTP ${response.status}`);
     };
+
+    const sendMauticLead = async (leadData) => {
+      const mauticData = new URLSearchParams();
+      mauticData.set('mauticform[firstname]', leadData.name);
+      mauticData.set('mauticform[email]', leadData.email);
+      mauticData.set('mauticform[phone]', leadData.phone);
+      mauticData.set('mauticform[formId]', '9');
+      mauticData.set('mauticform[formName]', 'webinarioanovapsicologia');
+
+      const response = await fetch(mauticEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: mauticData,
+        keepalive: true
+      });
+      if (!response.ok) throw new Error(`Mautic respondeu com HTTP ${response.status}`);
+    };
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
       const status = form.querySelector('[data-form-status]');
       const formLocation = form.id === 'lead-form' ? 'hero' : 'modal';
@@ -1235,9 +1253,15 @@
               event_id: eventId,
               error_type: 'network'
             }));
+          const mauticPromise = sendMauticLead(leadData)
+            .catch(() => window.docoTracking.push('mautic_error', {
+              ...trackingContext,
+              event_id: eventId,
+              error_type: 'network'
+            }));
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
           await Promise.race([
-            Promise.allSettled([capiPromise, dataCrazyPromise]),
+            Promise.allSettled([capiPromise, dataCrazyPromise, mauticPromise]),
             new Promise((resolve) => window.setTimeout(resolve, 1500))
           ]);
           form.reset();
