@@ -1235,12 +1235,21 @@
         submitting = true;
         submitButton.disabled = true;
         status.textContent = 'Enviando sua inscrição...';
-        fetch(registrationEndpoint, {
+        const spreadsheetPromise = fetch(registrationEndpoint, {
           method: 'POST',
           mode: 'no-cors',
           body: new URLSearchParams(data),
           keepalive: true
-        }).then(async () => {
+        });
+        const dataCrazyPromise = sendDataCrazyLead(leadData);
+        const mauticPromise = sendMauticLead(leadData);
+
+        Promise.all([dataCrazyPromise, mauticPromise]).then(async () => {
+          spreadsheetPromise.catch(() => window.docoTracking.push('spreadsheet_error', {
+            ...trackingContext,
+            event_id: eventId,
+            error_type: 'network'
+          }));
           window.docoTracking.push('generate_lead', {
             ...trackingContext, ...attribution,
             event_id: eventId,
@@ -1250,28 +1259,22 @@
           });
           const capiPromise = sendMetaCapiLead(leadData, eventId)
             .catch(() => reportCapiError('Lead', eventId));
-          const dataCrazyPromise = sendDataCrazyLead(leadData)
-            .catch(() => window.docoTracking.push('datacrazy_error', {
-              ...trackingContext,
-              event_id: eventId,
-              error_type: 'network'
-            }));
-          const mauticPromise = sendMauticLead(leadData)
-            .catch(() => window.docoTracking.push('mautic_error', {
-              ...trackingContext,
-              event_id: eventId,
-              error_type: 'network'
-            }));
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
           await Promise.race([
-            Promise.allSettled([capiPromise, dataCrazyPromise, mauticPromise]),
+            Promise.allSettled([capiPromise, spreadsheetPromise]),
             new Promise((resolve) => window.setTimeout(resolve, 1500))
           ]);
           form.reset();
           window.setTimeout(() => window.location.assign(whatsappGroupUrl), 700);
-        }).catch(() => {
-          window.docoTracking.push('form_error', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation, error_type: 'network' });
-          status.textContent = 'Não foi possível concluir agora. Tente novamente em instantes.';
+        }).catch((error) => {
+          const integration = String(error?.message || '').startsWith('Mautic') ? 'mautic' : 'datacrazy';
+          window.docoTracking.push(`${integration}_error`, {
+            ...trackingContext,
+            event_id: eventId,
+            error_type: 'network'
+          });
+          window.docoTracking.push('form_error', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation, error_type: 'integration' });
+          status.textContent = 'Não foi possível confirmar sua inscrição agora. Tente novamente em instantes.';
         }).finally(() => {
           submitting = false;
           submitButton.disabled = false;
