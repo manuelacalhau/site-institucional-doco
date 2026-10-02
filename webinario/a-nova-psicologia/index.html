@@ -52,7 +52,6 @@
     };
     if (localStorage.getItem('doco_cookie_consent') === 'granted') {
       window.gtag('consent', 'update', { ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });
-      window.docoTracking.load();
     }
   </script>
   <style>
@@ -958,10 +957,16 @@
       });
     });
     const query = new URLSearchParams(window.location.search);
-    const attribution = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].reduce((result, key) => {
+    const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
+    const attribution = attributionKeys.reduce((result, key) => {
       const value = query.get(key);
-      if (value) sessionStorage.setItem(`doco_${key}`, value);
-      result[key] = value || sessionStorage.getItem(`doco_${key}`) || undefined;
+      if (value) {
+        sessionStorage.setItem(`doco_${key}`, value);
+        if (!localStorage.getItem(`doco_first_${key}`)) localStorage.setItem(`doco_first_${key}`, value);
+        localStorage.setItem(`doco_last_${key}`, value);
+      }
+      result[key] = value || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`) || undefined;
+      result[`first_${key}`] = localStorage.getItem(`doco_first_${key}`) || undefined;
       return result;
     }, {});
 
@@ -1090,7 +1095,10 @@
       return { userData };
     };
 
+    const hasMeasurementConsent = () => localStorage.getItem('doco_cookie_consent') === 'granted';
+
     const sendMetaCapiEvent = async ({ eventName, eventId, customData, leadData }) => {
+      if (!hasMeasurementConsent()) return { skipped: true, reason: 'consent_denied' };
       const { userData } = await buildMetaUserData(leadData);
 
       const response = await fetch(metaCapiEndpoint, {
@@ -1126,6 +1134,7 @@
       ...attribution,
       event_id: pageViewEventId
     });
+    if (hasMeasurementConsent()) window.docoTracking.load();
     sendMetaCapiEvent({
       eventName: 'PageView',
       eventId: pageViewEventId,

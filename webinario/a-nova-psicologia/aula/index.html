@@ -27,27 +27,33 @@
       source_url: location.href
     });
 
-    const gtm = document.createElement('script');
-    gtm.async = true;
-    gtm.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-WJ7MXFDT';
-    document.head.appendChild(gtm);
+    if (localStorage.getItem('doco_cookie_consent') === 'granted') {
+      const gtm = document.createElement('script');
+      gtm.async = true;
+      gtm.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-WJ7MXFDT';
+      document.head.appendChild(gtm);
+    }
 
-    fetch('/api/meta-capi', {
+    const query = new URLSearchParams(location.search);
+    const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
+    const attribution = attributionKeys.reduce((result, key) => {
+      const value = query.get(key) || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`);
+      if (value) result[key] = value;
+      return result;
+    }, {});
+
+    fetch('/api/anp-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
       body: JSON.stringify({
-        event_name: 'CTA_Click',
+        event_name: 'ParticipouWebinario',
         event_id: eventId,
         event_time: Math.floor(Date.now() / 1000),
-        action_source: 'website',
-        event_source_url: location.href,
-        user_data: { client_user_agent: navigator.userAgent },
-        custom_data: {
-          content_name: 'ParticipouWebinario',
-          content_category: 'webinar',
-          status: 'google_meet_opened'
-        }
+        source: 'website',
+        source_url: location.href,
+        consent: localStorage.getItem('doco_cookie_consent') === 'granted',
+        ...attribution
       })
     }).catch(() => {});
 
