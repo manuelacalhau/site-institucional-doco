@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Abrindo a aula no Google Meet | doco</title>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+    window.gtag('consent', 'default', {
+      ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied'
+    });
+    if (localStorage.getItem('doco_cookie_consent') === 'granted') {
+      window.gtag('consent', 'update', {
+        ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted'
+      });
+    }
+
+    const eventId = `anp-meet-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+    window.dataLayer.push({
+      event: 'ParticipouWebinario',
+      event_id: eventId,
+      event_name: 'ParticipouWebinario',
+      funnel: 'a_nova_psicologia',
+      destination: 'google_meet',
+      source_url: location.href
+    });
+
+    const gtm = document.createElement('script');
+    gtm.async = true;
+    gtm.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-WJ7MXFDT';
+    document.head.appendChild(gtm);
+
+    fetch('/api/meta-capi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        event_name: 'CTA_Click',
+        event_id: eventId,
+        event_time: Math.floor(Date.now() / 1000),
+        action_source: 'website',
+        event_source_url: location.href,
+        user_data: { client_user_agent: navigator.userAgent },
+        custom_data: {
+          content_name: 'ParticipouWebinario',
+          content_category: 'webinar',
+          status: 'google_meet_opened'
+        }
+      })
+    }).catch(() => {});
+
+    window.setTimeout(() => location.replace('https://meet.google.com/onf-qfve-ihf'), 1200);
+  </script>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3ede4; color: #1f2b22; font: 16px/1.5 Arial, sans-serif; text-align: center; }
+    main { width: min(90%, 34rem); padding: 2rem; }
+    a { color: #1f2b22; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <p>Registrando seu acesso e abrindo a aula no Google Meet…</p>
+    <p><a href="https://meet.google.com/onf-qfve-ihf">Clique aqui se a aula não abrir automaticamente</a></p>
+  </main>
+</body>
+</html>
