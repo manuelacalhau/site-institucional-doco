@@ -37,14 +37,14 @@
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
       body: JSON.stringify({
-        event_name: 'EntrouNoGrupo',
+        event_name: 'CTA_Click',
         event_id: eventId,
         event_time: Math.floor(Date.now() / 1000),
         action_source: 'website',
         event_source_url: location.href,
         user_data: { client_user_agent: navigator.userAgent },
         custom_data: {
-          content_name: 'A nova psicologia',
+          content_name: 'EntrouNoGrupo',
           content_category: 'webinar',
           status: 'whatsapp_group_opened'
         }
