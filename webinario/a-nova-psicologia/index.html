@@ -1199,7 +1199,7 @@
         const submitButton = form.querySelector('button[type="submit"]');
         const data = new FormData(form);
         const leadData = {
-          name: String(data.get('name') || '').trim(),
+          name: String(data.get('nome') || '').trim(),
           email: String(data.get('email') || '').trim().toLowerCase(),
           phone: String(data.get('whatsapp') || '').replace(/\D/g, '')
         };
