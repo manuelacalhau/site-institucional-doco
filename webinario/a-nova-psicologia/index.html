@@ -1156,7 +1156,22 @@
       form.addEventListener('input', () => {
         if (started) return;
         started = true;
-        window.docoTracking.push('form_start', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation });
+        const eventId = createEventId('formstart');
+        window.docoTracking.push('form_start', {
+          ...trackingContext,
+          event_id: eventId,
+          form_id: 'webinar_registration',
+          form_location: formLocation
+        });
+        sendMetaCapiEvent({
+          eventName: 'FormStart',
+          eventId,
+          customData: {
+            content_name: 'A nova psicologia',
+            content_category: 'webinar',
+            status: `form_started_${formLocation}`
+          }
+        }).catch(() => reportCapiError('FormStart', eventId));
       });
       form.addEventListener('submit', (event) => {
         event.preventDefault();
