@@ -1206,15 +1206,6 @@
           form_id: 'webinar_registration',
           form_location: formLocation
         });
-        sendMetaCapiEvent({
-          eventName: 'FormStart',
-          eventId,
-          customData: {
-            content_name: 'A nova psicologia',
-            content_category: 'webinar',
-            status: `form_started_${formLocation}`
-          }
-        }).catch(() => reportCapiError('FormStart', eventId));
       });
       form.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -1301,15 +1292,6 @@
           cta_location: ctaLocation,
           destination: 'registration_modal'
         });
-        sendMetaCapiEvent({
-          eventName: 'CTA_Click',
-          eventId: clickEventId,
-          customData: {
-            content_name: 'A nova psicologia',
-            content_category: 'webinar',
-            status: `cta_clicked_${ctaLocation}`
-          }
-        }).catch(() => reportCapiError('CTA_Click', clickEventId));
         registrationModal.showModal();
       });
     });
