@@ -1088,8 +1088,13 @@
         userData.ph = phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined;
       }
 
-      userData.fbp = getCookie('_fbp') || undefined;
-      userData.fbc = getCookie('_fbc') || undefined;
+      // Identificadores de cookies de publicidade só podem acompanhar o evento
+      // quando a pessoa autorizou a medição no banner. A CAPI continua ativa
+      // sem esses cookies usando o external_id anônimo gerado pela própria página.
+      if (hasMeasurementConsent()) {
+        userData.fbp = getCookie('_fbp') || undefined;
+        userData.fbc = getCookie('_fbc') || undefined;
+      }
       userData.client_user_agent = navigator.userAgent;
 
       return { userData };
@@ -1098,7 +1103,6 @@
     const hasMeasurementConsent = () => localStorage.getItem('doco_cookie_consent') === 'granted';
 
     const sendMetaCapiEvent = async ({ eventName, eventId, customData, leadData }) => {
-      if (!hasMeasurementConsent()) return { skipped: true, reason: 'consent_denied' };
       const { userData } = await buildMetaUserData(leadData);
 
       const response = await fetch(metaCapiEndpoint, {
