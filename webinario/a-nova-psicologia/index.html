@@ -1035,6 +1035,7 @@
 
     const registrationEndpoint = 'https://script.google.com/macros/s/AKfycbyoDre2GyEHQYCGZ4fvxDCC7WR86sjXYLEwf7iIsbXHlEj1FOoQheTNrVJ9eOKvovWtnQ/exec';
     const metaCapiEndpoint = '/api/meta-capi';
+    const dataCrazyEndpoint = '/api/datacrazy-webinar';
     const whatsappGroupUrl = 'https://chat.whatsapp.com/HVy0070pwLg14IKKPhZbJA';
 
     const getCookie = (name) => document.cookie
@@ -1144,6 +1145,22 @@
         status: 'registered'
       }
     });
+
+    const sendDataCrazyLead = async (leadData) => {
+      const response = await fetch(dataCrazyEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          name: leadData.name,
+          email: leadData.email,
+          phone: leadData.phone,
+          source_url: window.location.href,
+          ...attribution
+        })
+      });
+      if (!response.ok) throw new Error(`DataCrazy respondeu com HTTP ${response.status}`);
+    };
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
       const status = form.querySelector('[data-form-status]');
       const formLocation = form.id === 'lead-form' ? 'hero' : 'modal';
@@ -1182,6 +1199,7 @@
         const submitButton = form.querySelector('button[type="submit"]');
         const data = new FormData(form);
         const leadData = {
+          name: String(data.get('name') || '').trim(),
           email: String(data.get('email') || '').trim().toLowerCase(),
           phone: String(data.get('whatsapp') || '').replace(/\D/g, '')
         };
@@ -1211,9 +1229,15 @@
           });
           const capiPromise = sendMetaCapiLead(leadData, eventId)
             .catch(() => reportCapiError('Lead', eventId));
+          const dataCrazyPromise = sendDataCrazyLead(leadData)
+            .catch(() => window.docoTracking.push('datacrazy_error', {
+              ...trackingContext,
+              event_id: eventId,
+              error_type: 'network'
+            }));
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
           await Promise.race([
-            capiPromise,
+            Promise.allSettled([capiPromise, dataCrazyPromise]),
             new Promise((resolve) => window.setTimeout(resolve, 1500))
           ]);
           form.reset();
