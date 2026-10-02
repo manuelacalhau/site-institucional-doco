@@ -1070,7 +1070,6 @@
     const anonymousExternalId = sha256(anonymousVisitorSeed);
 
     const buildMetaUserData = async (leadData) => {
-      const advertisingConsent = localStorage.getItem('doco_cookie_consent') === 'granted';
       const userData = {
         external_id: [await anonymousExternalId]
       };
@@ -1082,17 +1081,15 @@
         userData.ph = phone ? [await sha256(phone.startsWith('55') ? phone : `55${phone}`)] : undefined;
       }
 
-      if (advertisingConsent) {
-        userData.fbp = getCookie('_fbp') || undefined;
-        userData.fbc = getCookie('_fbc') || undefined;
-        userData.client_user_agent = navigator.userAgent;
-      }
+      userData.fbp = getCookie('_fbp') || undefined;
+      userData.fbc = getCookie('_fbc') || undefined;
+      userData.client_user_agent = navigator.userAgent;
 
-      return { advertisingConsent, userData };
+      return { userData };
     };
 
     const sendMetaCapiEvent = async ({ eventName, eventId, customData, leadData }) => {
-      const { advertisingConsent, userData } = await buildMetaUserData(leadData);
+      const { userData } = await buildMetaUserData(leadData);
 
       const response = await fetch(metaCapiEndpoint, {
         method: 'POST',
@@ -1104,7 +1101,6 @@
           event_time: Math.floor(Date.now() / 1000),
           action_source: 'website',
           event_source_url: window.location.href,
-          advertising_consent: advertisingConsent,
           user_data: userData,
           custom_data: customData
         })
