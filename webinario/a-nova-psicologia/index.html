@@ -1138,7 +1138,10 @@
       ...attribution,
       event_id: pageViewEventId
     });
-    if (hasMeasurementConsent()) window.docoTracking.load();
+    // O contêiner precisa estar disponível para consumir eventos do dataLayer
+    // mesmo antes da escolha do visitante. O Consent Mode acima mantém os
+    // armazenamentos negados até que haja consentimento.
+    window.docoTracking.load();
     sendMetaCapiEvent({
       eventName: 'PageView',
       eventId: pageViewEventId,
