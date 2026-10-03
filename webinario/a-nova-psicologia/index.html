@@ -1287,10 +1287,13 @@
           });
           const capiPromise = sendMetaCapiLead(leadData, eventId)
             .catch(() => reportCapiError('Lead', eventId));
-          sessionStorage.setItem('doco_anp_lead', JSON.stringify({
+          const persistedLead = JSON.stringify({
             ...leadData,
+            group_event_id: createEventId('group'),
             stored_at: Date.now()
-          }));
+          });
+          sessionStorage.setItem('doco_anp_lead', persistedLead);
+          localStorage.setItem('doco_anp_lead', persistedLead);
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
           await Promise.race([
             Promise.allSettled([capiPromise, spreadsheetPromise]),

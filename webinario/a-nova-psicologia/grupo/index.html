@@ -16,10 +16,10 @@
         ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted'
       });
     }
-    const eventId = `anp-group-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+    const fallbackEventId = `anp-group-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
     const eventPayload = {
       event: 'EntrouNoGrupo',
-      event_id: eventId,
+      event_id: fallbackEventId,
       event_name: 'EntrouNoGrupo',
       funnel: 'a_nova_psicologia',
       destination: 'whatsapp_group',
@@ -37,16 +37,19 @@
     const query = new URLSearchParams(location.search);
     let leadData = {};
     try {
-      const savedLead = JSON.parse(sessionStorage.getItem('doco_anp_lead') || '{}');
-      const isFresh = Number(savedLead.stored_at || 0) > Date.now() - (2 * 60 * 60 * 1000);
+      const savedLead = JSON.parse(sessionStorage.getItem('doco_anp_lead') || localStorage.getItem('doco_anp_lead') || '{}');
+      const isFresh = Number(savedLead.stored_at || 0) > Date.now() - (30 * 24 * 60 * 60 * 1000);
       if (isFresh) {
         leadData = {
           name: String(savedLead.name || '').trim().slice(0, 200),
           email: String(savedLead.email || '').trim().toLowerCase().slice(0, 320),
-          phone: String(savedLead.phone || '').replace(/\D/g, '').slice(0, 40)
+          phone: String(savedLead.phone || '').replace(/\D/g, '').slice(0, 40),
+          eventId: String(savedLead.group_event_id || fallbackEventId).slice(0, 200)
         };
       }
     } catch (_) {}
+    const eventId = leadData.eventId || fallbackEventId;
+    eventPayload.event_id = eventId;
     const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
     const attribution = attributionKeys.reduce((result, key) => {
       const value = query.get(key) || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`);
@@ -54,7 +57,8 @@
       return result;
     }, {});
 
-    const trackingRequest = fetch('/api/anp-events', {
+    const alreadySent = localStorage.getItem('doco_anp_group_sent') === eventId;
+    const trackingRequest = alreadySent ? Promise.resolve() : fetch('/api/anp-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
@@ -73,13 +77,17 @@
         },
         ...attribution
       })
-    }).catch(() => {}).finally(() => {
+    }).then((response) => {
+      if (!response.ok) throw new Error(`Tracking HTTP ${response.status}`);
+      localStorage.setItem('doco_anp_group_sent', eventId);
       sessionStorage.removeItem('doco_anp_lead');
+    }).catch(() => {
+      localStorage.setItem('doco_anp_group_pending', eventId);
     });
 
     Promise.race([
       trackingRequest,
-      new Promise((resolve) => window.setTimeout(resolve, 1800))
+      new Promise((resolve) => window.setTimeout(resolve, 4000))
     ]).finally(() => location.replace('https://chat.whatsapp.com/IVjX7WA9PeWICqTc8TbpQ4'));
   </script>
   <style>
