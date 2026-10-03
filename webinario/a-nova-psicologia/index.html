@@ -1223,6 +1223,12 @@
           form_id: 'webinar_registration',
           form_location: formLocation
         });
+        if (typeof window.fbq === 'function') {
+          window.fbq('trackCustom', 'FormStart', {
+            form_id: 'webinar_registration',
+            form_location: formLocation
+          }, { eventID: eventId });
+        }
       };
       // O foco cobre a primeira interação mesmo quando o navegador, um
       // gerenciador de senhas ou uma ferramenta de teste preenche o campo sem
