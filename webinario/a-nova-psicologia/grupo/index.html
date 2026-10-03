@@ -35,6 +35,18 @@
     }
 
     const query = new URLSearchParams(location.search);
+    let leadData = {};
+    try {
+      const savedLead = JSON.parse(sessionStorage.getItem('doco_anp_lead') || '{}');
+      const isFresh = Number(savedLead.stored_at || 0) > Date.now() - (2 * 60 * 60 * 1000);
+      if (isFresh) {
+        leadData = {
+          name: String(savedLead.name || '').trim().slice(0, 200),
+          email: String(savedLead.email || '').trim().toLowerCase().slice(0, 320),
+          phone: String(savedLead.phone || '').replace(/\D/g, '').slice(0, 40)
+        };
+      }
+    } catch (_) {}
     const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
     const attribution = attributionKeys.reduce((result, key) => {
       const value = query.get(key) || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`);
@@ -42,7 +54,7 @@
       return result;
     }, {});
 
-    fetch('/api/anp-events', {
+    const trackingRequest = fetch('/api/anp-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
@@ -53,11 +65,22 @@
         source: 'website',
         source_url: location.href,
         consent: localStorage.getItem('doco_cookie_consent') === 'granted',
+        name: leadData.name,
+        contact: {
+          name: leadData.name,
+          email: leadData.email,
+          phone: leadData.phone
+        },
         ...attribution
       })
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => {
+      sessionStorage.removeItem('doco_anp_lead');
+    });
 
-    window.setTimeout(() => location.replace('https://chat.whatsapp.com/IVjX7WA9PeWICqTc8TbpQ4'), 1200);
+    Promise.race([
+      trackingRequest,
+      new Promise((resolve) => window.setTimeout(resolve, 1800))
+    ]).finally(() => location.replace('https://chat.whatsapp.com/IVjX7WA9PeWICqTc8TbpQ4'));
   </script>
   <style>
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3ede4; color: #1f2b22; font: 16px/1.5 Arial, sans-serif; text-align: center; }
