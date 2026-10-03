@@ -43,6 +43,7 @@
         }
         window.fbq('init', pixelId);
         window.fbq('set', 'autoConfig', false, pixelId);
+        window.fbq('track', 'PageView');
       },
       load() {
         if (this.loaded) return;
