@@ -1195,14 +1195,17 @@
         throw new Error(`Mautic respondeu com HTTP ${response.status}`);
       }
     };
+    let formStartSent = false;
+
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
       const status = form.querySelector('[data-form-status]');
       const formLocation = form.id === 'lead-form' ? 'hero' : 'modal';
       let started = false;
       let submitting = false;
       form.addEventListener('input', () => {
-        if (started) return;
+        if (started || formStartSent) return;
         started = true;
+        formStartSent = true;
         const eventId = createEventId('formstart');
         window.docoTracking.push('form_start', {
           ...trackingContext,
