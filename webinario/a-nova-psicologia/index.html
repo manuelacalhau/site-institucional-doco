@@ -20,8 +20,16 @@
     window.gtag('consent', 'default', {
       ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', wait_for_update: 500
     });
+    const earlyMetaQuery = new URLSearchParams(window.location.search);
+    const earlyFbclid = String(earlyMetaQuery.get('fbclid') || '').trim();
+    const earlyPageViewEventId = `webinar-pageview-${Date.now()}-${typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 18)}`;
     window.docoTracking = {
-      containerId: 'GTM-WJ7MXFDT', loaded: false,
+      containerId: 'GTM-WJ7MXFDT',
+      loaded: false,
+      pageViewEventId: earlyPageViewEventId,
+      fbc: earlyFbclid ? `fb.1.${Date.now()}.${earlyFbclid}` : '',
       prepareMetaPixel() {
         const pixelId = '815401080953791';
         if (typeof window.fbq !== 'function') {
@@ -43,7 +51,7 @@
         }
         window.fbq('init', pixelId);
         window.fbq('set', 'autoConfig', false, pixelId);
-        window.fbq('track', 'PageView');
+        window.fbq('track', 'PageView', {}, { eventID: this.pageViewEventId });
       },
       load() {
         if (this.loaded) return;
@@ -57,6 +65,10 @@
       },
       push(event, parameters = {}) { window.dataLayer.push({ event, ...parameters }); }
     };
+    // Inicia o Pixel e o GTM assim que o cabeçalho é processado. O Consent Mode
+    // já está negado por padrão; a inicialização antecipada evita perder o
+    // PageView quando a pessoa fecha o navegador interno antes do fim do HTML.
+    window.docoTracking.load();
     if (localStorage.getItem('doco_cookie_consent') === 'granted') {
       window.gtag('consent', 'update', { ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });
     }
@@ -1098,9 +1110,12 @@
       // Identificadores de cookies de publicidade só podem acompanhar o evento
       // quando a pessoa autorizou a medição no banner. A CAPI continua ativa
       // sem esses cookies usando o external_id anônimo gerado pela própria página.
+      // O clique atual pode ser atribuído sem depender da criação do cookie
+      // _fbc: o valor é derivado do fbclid da própria URL no formato da Meta.
+      userData.fbc = window.docoTracking.fbc || undefined;
       if (hasMeasurementConsent()) {
         userData.fbp = getCookie('_fbp') || undefined;
-        userData.fbc = getCookie('_fbc') || undefined;
+        userData.fbc = getCookie('_fbc') || userData.fbc;
       }
       userData.client_user_agent = navigator.userAgent;
 
@@ -1139,7 +1154,7 @@
       });
     };
 
-    const pageViewEventId = createEventId('pageview');
+    const pageViewEventId = window.docoTracking.pageViewEventId;
     window.docoTracking.push('webinar_view', {
       ...trackingContext,
       ...attribution,
