@@ -79,21 +79,9 @@
       localStorage.setItem('doco_anp_meet_sent', eventId);
     });
 
-    const mauticRequest = leadData.email ? fetch('/api/mautic-webinar-attended', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-      keepalive: true,
-      redirect: 'manual',
-      body: new URLSearchParams({
-        'mauticform[email]': leadData.email,
-        'mauticform[formId]': '10',
-        'mauticform[formName]': 'webhookparticipoudowebinario'
-      })
-    }).then((response) => {
-      if (!response.ok && response.type !== 'opaqueredirect' && response.status !== 0) {
-        throw new Error(`Mautic HTTP ${response.status}`);
-      }
-    }) : Promise.resolve();
+    const attendanceUrl = new URL('https://n8n.agenciadoco.com.br/webhook/anp-meet-presenca-teste');
+    attendanceUrl.searchParams.set('event_id', eventId);
+    if (leadData.email) attendanceUrl.searchParams.set('email', leadData.email);
 
     const metaRequest = alreadySent ? Promise.resolve() : Promise.all([
       leadData.email ? sha256(leadData.email) : Promise.resolve(''),
@@ -122,9 +110,9 @@
     }).catch(() => {});
 
     Promise.race([
-      Promise.allSettled([routerRequest, mauticRequest, metaRequest]),
+      Promise.allSettled([routerRequest, metaRequest]),
       new Promise((resolve) => window.setTimeout(resolve, 4000))
-    ]).finally(() => location.replace('https://meet.google.com/onf-qfve-ihf'));
+    ]).finally(() => location.replace(attendanceUrl.toString()));
   </script>
   <style>
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3ede4; color: #1f2b22; font: 16px/1.5 Arial, sans-serif; text-align: center; }
