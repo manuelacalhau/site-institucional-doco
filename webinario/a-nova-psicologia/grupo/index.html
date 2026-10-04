@@ -50,6 +50,11 @@
     } catch (_) {}
     const eventId = leadData.eventId || fallbackEventId;
     eventPayload.event_id = eventId;
+    const sha256 = async (value) => {
+      const bytes = new TextEncoder().encode(String(value || '').trim().toLowerCase());
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    };
     const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
     const attribution = attributionKeys.reduce((result, key) => {
       const value = query.get(key) || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`);
@@ -85,8 +90,34 @@
       localStorage.setItem('doco_anp_group_pending', eventId);
     });
 
+    const metaRequest = alreadySent ? Promise.resolve() : Promise.all([
+      leadData.email ? sha256(leadData.email) : Promise.resolve(''),
+      leadData.phone ? sha256(leadData.phone.startsWith('55') ? leadData.phone : `55${leadData.phone}`) : Promise.resolve(''),
+      sha256(leadData.email || leadData.phone || eventId)
+    ]).then(([emailHash, phoneHash, externalId]) => fetch('/api/meta-capi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        event_name: 'EntrouNoGrupo',
+        event_id: eventId,
+        event_time: Math.floor(Date.now() / 1000),
+        action_source: 'website',
+        event_source_url: location.href,
+        user_data: {
+          em: emailHash ? [emailHash] : undefined,
+          ph: phoneHash ? [phoneHash] : undefined,
+          external_id: [externalId],
+          client_user_agent: navigator.userAgent
+        },
+        custom_data: { content_name: 'A nova psicologia', funnel_stage: 'group_joined' }
+      })
+    })).then((response) => {
+      if (!response.ok) throw new Error(`Meta CAPI HTTP ${response.status}`);
+    }).catch(() => {});
+
     Promise.race([
-      trackingRequest,
+      Promise.allSettled([trackingRequest, metaRequest]),
       new Promise((resolve) => window.setTimeout(resolve, 4000))
     ]).finally(() => location.replace('https://chat.whatsapp.com/IVjX7WA9PeWICqTc8TbpQ4'));
   </script>

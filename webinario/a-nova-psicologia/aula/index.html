@@ -30,6 +30,11 @@
       phone: String(query.get('phone') || savedLead.phone || '').replace(/\D/g, '').slice(0, 40)
     };
     const eventId = String(savedLead.meet_event_id || query.get('event_id') || fallbackEventId).slice(0, 200);
+    const sha256 = async (value) => {
+      const bytes = new TextEncoder().encode(String(value || '').trim().toLowerCase());
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    };
     window.dataLayer.push({
       event: 'ParticipouWebinario',
       event_id: eventId,
@@ -90,8 +95,34 @@
       }
     }) : Promise.resolve();
 
+    const metaRequest = alreadySent ? Promise.resolve() : Promise.all([
+      leadData.email ? sha256(leadData.email) : Promise.resolve(''),
+      leadData.phone ? sha256(leadData.phone.startsWith('55') ? leadData.phone : `55${leadData.phone}`) : Promise.resolve(''),
+      sha256(leadData.email || leadData.phone || eventId)
+    ]).then(([emailHash, phoneHash, externalId]) => fetch('/api/meta-capi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        event_name: 'ParticipouWebinario',
+        event_id: eventId,
+        event_time: Math.floor(Date.now() / 1000),
+        action_source: 'website',
+        event_source_url: location.href,
+        user_data: {
+          em: emailHash ? [emailHash] : undefined,
+          ph: phoneHash ? [phoneHash] : undefined,
+          external_id: [externalId],
+          client_user_agent: navigator.userAgent
+        },
+        custom_data: { content_name: 'A nova psicologia', funnel_stage: 'webinar_attended' }
+      })
+    })).then((response) => {
+      if (!response.ok) throw new Error(`Meta CAPI HTTP ${response.status}`);
+    }).catch(() => {});
+
     Promise.race([
-      Promise.allSettled([routerRequest, mauticRequest]),
+      Promise.allSettled([routerRequest, mauticRequest, metaRequest]),
       new Promise((resolve) => window.setTimeout(resolve, 4000))
     ]).finally(() => location.replace('https://meet.google.com/onf-qfve-ihf'));
   </script>
