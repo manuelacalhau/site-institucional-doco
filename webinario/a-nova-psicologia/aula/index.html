@@ -17,7 +17,19 @@
       });
     }
 
-    const eventId = `anp-meet-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+    const query = new URLSearchParams(location.search);
+    const fallbackEventId = `anp-meet-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
+    let savedLead = {};
+    try {
+      const candidate = JSON.parse(sessionStorage.getItem('doco_anp_lead') || localStorage.getItem('doco_anp_lead') || '{}');
+      if (Number(candidate.stored_at || 0) > Date.now() - (30 * 24 * 60 * 60 * 1000)) savedLead = candidate;
+    } catch (_) {}
+    const leadData = {
+      name: String(query.get('name') || savedLead.name || '').trim().slice(0, 200),
+      email: String(query.get('email') || savedLead.email || '').trim().toLowerCase().slice(0, 320),
+      phone: String(query.get('phone') || savedLead.phone || '').replace(/\D/g, '').slice(0, 40)
+    };
+    const eventId = String(savedLead.meet_event_id || query.get('event_id') || fallbackEventId).slice(0, 200);
     window.dataLayer.push({
       event: 'ParticipouWebinario',
       event_id: eventId,
@@ -34,7 +46,6 @@
       document.head.appendChild(gtm);
     }
 
-    const query = new URLSearchParams(location.search);
     const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
     const attribution = attributionKeys.reduce((result, key) => {
       const value = query.get(key) || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`);
@@ -42,7 +53,8 @@
       return result;
     }, {});
 
-    fetch('/api/anp-events', {
+    const alreadySent = localStorage.getItem('doco_anp_meet_sent') === eventId;
+    const routerRequest = alreadySent ? Promise.resolve() : fetch('/api/anp-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
@@ -53,11 +65,35 @@
         source: 'website',
         source_url: location.href,
         consent: localStorage.getItem('doco_cookie_consent') === 'granted',
+        name: leadData.name,
+        contact: leadData,
         ...attribution
       })
-    }).catch(() => {});
+    }).then((response) => {
+      if (!response.ok) throw new Error(`Tracking HTTP ${response.status}`);
+      localStorage.setItem('doco_anp_meet_sent', eventId);
+    });
 
-    window.setTimeout(() => location.replace('https://meet.google.com/onf-qfve-ihf'), 1200);
+    const mauticRequest = leadData.email ? fetch('/api/mautic-webinar-attended', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      keepalive: true,
+      redirect: 'manual',
+      body: new URLSearchParams({
+        'mauticform[email]': leadData.email,
+        'mauticform[formId]': '10',
+        'mauticform[formName]': 'webhookparticipoudowebinario'
+      })
+    }).then((response) => {
+      if (!response.ok && response.type !== 'opaqueredirect' && response.status !== 0) {
+        throw new Error(`Mautic HTTP ${response.status}`);
+      }
+    }) : Promise.resolve();
+
+    Promise.race([
+      Promise.allSettled([routerRequest, mauticRequest]),
+      new Promise((resolve) => window.setTimeout(resolve, 4000))
+    ]).finally(() => location.replace('https://meet.google.com/onf-qfve-ihf'));
   </script>
   <style>
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3ede4; color: #1f2b22; font: 16px/1.5 Arial, sans-serif; text-align: center; }

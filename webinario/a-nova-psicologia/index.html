@@ -1305,6 +1305,7 @@
           const persistedLead = JSON.stringify({
             ...leadData,
             group_event_id: createEventId('group'),
+            meet_event_id: createEventId('meet'),
             stored_at: Date.now()
           });
           sessionStorage.setItem('doco_anp_lead', persistedLead);
