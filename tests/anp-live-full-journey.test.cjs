@@ -26,7 +26,17 @@ assert.ok(qa.name && qa.email && qa.phone,
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
+  const requests = [];
   const calls = [];
+  page.on('request', request => {
+    const url = request.url();
+    if (!url.includes('/api/')) return;
+    let body = request.postData();
+    if (body && request.headers()['content-type']?.includes('json')) {
+      try { body = JSON.parse(body); } catch {}
+    }
+    requests.push({ url, body });
+  });
   page.on('response', async response => {
     const request = response.request();
     const url = request.url();
@@ -41,14 +51,15 @@ assert.ok(qa.name && qa.email && qa.phone,
   await page.route('https://meet.google.com/**', route => route.abort());
 
   const counts = () => ({
-    datacrazy: calls.filter(call => call.url.includes('/api/datacrazy-webinar')).length,
-    mauticRegistration: calls.filter(call => call.url.endsWith('/api/mautic-webinar')).length,
-    metaLead: calls.filter(call => call.url.includes('/api/meta-capi') && call.body?.event_name === 'Lead').length,
-    groupRouter: calls.filter(call => call.url.includes('/api/anp-events') && call.body?.event_name === 'EntrouNoGrupo').length,
-    groupMeta: calls.filter(call => call.url.includes('/api/meta-capi') && call.body?.event_name === 'EntrouNoGrupo').length,
-    meetRouter: calls.filter(call => call.url.includes('/api/anp-events') && call.body?.event_name === 'ParticipouWebinario').length,
-    meetMeta: calls.filter(call => call.url.includes('/api/meta-capi') && call.body?.event_name === 'ParticipouWebinario').length,
-    meetMautic: calls.filter(call => call.url.includes('/api/mautic-webinar-attended')).length
+    datacrazy: requests.filter(call => call.url.includes('/api/datacrazy-webinar')).length,
+    mauticRegistration: requests.filter(call => call.url.includes('/api/mautic-webinar') &&
+      !call.url.includes('/api/mautic-webinar-attended')).length,
+    metaLead: requests.filter(call => call.url.includes('/api/meta-capi') && call.body?.event_name === 'Lead').length,
+    groupRouter: requests.filter(call => call.url.includes('/api/anp-events') && call.body?.event_name === 'EntrouNoGrupo').length,
+    groupMeta: requests.filter(call => call.url.includes('/api/meta-capi') && call.body?.event_name === 'EntrouNoGrupo').length,
+    meetRouter: requests.filter(call => call.url.includes('/api/anp-events') && call.body?.event_name === 'ParticipouWebinario').length,
+    meetMeta: requests.filter(call => call.url.includes('/api/meta-capi') && call.body?.event_name === 'ParticipouWebinario').length,
+    meetMautic: requests.filter(call => call.url.includes('/api/mautic-webinar-attended')).length
   });
 
   async function submitRegistration() {
@@ -57,8 +68,16 @@ assert.ok(qa.name && qa.email && qa.phone,
     await page.locator('#email').fill(qa.email);
     await page.locator('#whatsapp').fill(qa.phone);
     await page.locator('#consentimento').check();
+    const groupWasSent = await page.evaluate(() => Boolean(
+      localStorage.getItem('doco_anp_group_router_sent')
+    ));
+    const groupRequest = groupWasSent ? Promise.resolve() : page.waitForRequest(request => {
+      if (!request.url().includes('/api/anp-events')) return false;
+      try { return request.postDataJSON()?.event_name === 'EntrouNoGrupo'; } catch { return false; }
+    }, { timeout: 45_000 });
     await page.locator('#lead-form button[type="submit"]').click();
-    await page.waitForTimeout(5_000);
+    await groupRequest;
+    await page.waitForTimeout(500);
     // O cadastro redireciona para o WhatsApp assim que os destinos terminam.
     // Volte ao domínio antes de consultar o localStorage; uma navegação externa
     // abortada pode deixar o Chromium numa página de erro com origem opaca.
@@ -85,19 +104,19 @@ assert.ok(qa.name && qa.email && qa.phone,
   assert.equal(afterFirstRegistration.groupMeta, 1);
 
   await submitRegistration();
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(2_000);
   assert.deepEqual(counts(), afterFirstRegistration,
     'Reenvio do mesmo cadastro e reabertura do grupo não podem repetir destinos');
 
   await page.goto(`${base}/aula/`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(2_000);
   const afterFirstMeet = counts();
   assert.equal(afterFirstMeet.meetRouter, 1);
   assert.equal(afterFirstMeet.meetMeta, 1);
   assert.equal(afterFirstMeet.meetMautic, 1);
 
   await page.goto(`${base}/aula/`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(2_000);
   assert.deepEqual(counts(), afterFirstMeet,
     'Reabertura da aula não pode repetir roteador, Meta ou Mautic');
 
