@@ -20,7 +20,7 @@ function pageScript(relativePath) {
   return match[1];
 }
 
-async function execute({ file, lead, routerStatus = 200, metaStatus = 200, localStorage }) {
+async function execute({ file, lead, routerStatus = 200, metaStatus = 200, mauticStatus = 200, localStorage }) {
   const sessionStorage = new Storage({ doco_anp_lead: JSON.stringify(lead) });
   const calls = [];
   const dataLayer = [];
@@ -31,9 +31,16 @@ async function execute({ file, lead, routerStatus = 200, metaStatus = 200, local
   };
   const document = { head: { appendChild() {} }, createElement() { return {}; } };
   const fetch = async (url, options = {}) => {
-    calls.push({ url: String(url), body: options.body ? JSON.parse(options.body) : null });
-    const status = String(url).includes('/api/meta-capi') ? metaStatus : routerStatus;
-    return { ok: status >= 200 && status < 300, status };
+    const target = String(url);
+    let body = options.body || null;
+    if (typeof body === 'string' && String(options.headers?.['Content-Type'] || '').includes('json')) {
+      body = JSON.parse(body);
+    }
+    calls.push({ url: target, body });
+    const status = target.includes('/api/meta-capi')
+      ? metaStatus
+      : target.includes('/api/mautic-webinar-attended') ? mauticStatus : routerStatus;
+    return { ok: status >= 200 && status < 300, status, type: 'basic' };
   };
   const context = {
     URL, URLSearchParams, TextEncoder, crypto: webcrypto, fetch, document, location,
@@ -48,7 +55,7 @@ async function execute({ file, lead, routerStatus = 200, metaStatus = 200, local
   return { calls, dataLayer, location };
 }
 
-async function verifyPage({ file, eventName, eventId, routerKey, metaKey, oldKey, leadKey }) {
+async function verifyPage({ file, eventName, eventId, routerKey, metaKey, mauticKey, oldKey, leadKey }) {
   const lead = {
     name: 'Rubens QA', email: 'rubens.qa.20261002@example.com', phone: '5511999990002',
     stored_at: Date.now(), [leadKey]: eventId
@@ -60,6 +67,10 @@ async function verifyPage({ file, eventName, eventId, routerKey, metaKey, oldKey
   assert.equal(event.event_id, eventId, `${eventName}: dataLayer deve usar o ID persistido`);
   assert.equal(first.calls.filter(call => call.url.includes('/api/anp-events')).length, 1);
   assert.equal(first.calls.filter(call => call.url.includes('/api/meta-capi')).length, 1);
+  if (mauticKey) {
+    assert.equal(first.calls.filter(call => call.url.includes('/api/mautic-webinar-attended')).length, 1);
+    assert.equal(localStorage.getItem(mauticKey), eventId);
+  }
   assert.equal(localStorage.getItem(routerKey), eventId);
   assert.equal(localStorage.getItem(metaKey), null);
 
@@ -68,6 +79,10 @@ async function verifyPage({ file, eventName, eventId, routerKey, metaKey, oldKey
     `${eventName}: roteador não pode repetir após sucesso`);
   assert.equal(second.calls.filter(call => call.url.includes('/api/meta-capi')).length, 1,
     `${eventName}: Meta deve repetir após falha isolada`);
+  if (mauticKey) {
+    assert.equal(second.calls.filter(call => call.url.includes('/api/mautic-webinar-attended')).length, 0,
+      `${eventName}: Mautic não pode repetir após sucesso`);
+  }
   assert.equal(localStorage.getItem(metaKey), eventId);
 
   const legacyStorage = new Storage({ doco_anp_lead: JSON.stringify(lead), [oldKey]: eventId });
@@ -76,6 +91,18 @@ async function verifyPage({ file, eventName, eventId, routerKey, metaKey, oldKey
     `${eventName}: flag antiga deve impedir replay do roteador`);
   assert.equal(legacy.calls.filter(call => call.url.includes('/api/meta-capi')).length, 1,
     `${eventName}: flag antiga não deve ocultar possível falha da Meta`);
+
+  if (mauticKey) {
+    const retryStorage = new Storage({ doco_anp_lead: JSON.stringify(lead) });
+    const failed = await execute({ file, lead, routerStatus: 200, metaStatus: 200, mauticStatus: 500, localStorage: retryStorage });
+    assert.equal(failed.calls.filter(call => call.url.includes('/api/mautic-webinar-attended')).length, 1);
+    assert.equal(retryStorage.getItem(mauticKey), null,
+      `${eventName}: falha do Mautic não pode ser marcada como sucesso`);
+    const retried = await execute({ file, lead, routerStatus: 200, metaStatus: 200, mauticStatus: 200, localStorage: retryStorage });
+    assert.equal(retried.calls.filter(call => call.url.includes('/api/mautic-webinar-attended')).length, 1,
+      `${eventName}: Mautic deve repetir após falha isolada`);
+    assert.equal(retryStorage.getItem(mauticKey), eventId);
+  }
 }
 
 (async () => {
@@ -89,6 +116,7 @@ async function verifyPage({ file, eventName, eventId, routerKey, metaKey, oldKey
     file: 'webinario/a-nova-psicologia/aula/index.html',
     eventName: 'ParticipouWebinario', eventId: 'anp-meet-stable-id',
     routerKey: 'doco_anp_meet_router_sent', metaKey: 'doco_anp_meet_meta_sent',
+    mauticKey: 'doco_anp_meet_mautic_sent',
     oldKey: 'doco_anp_meet_sent', leadKey: 'meet_event_id'
   });
   console.log('ANP redirect tracking: idempotência por destino validada.');

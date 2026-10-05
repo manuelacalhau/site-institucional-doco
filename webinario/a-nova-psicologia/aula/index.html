@@ -64,6 +64,7 @@
     const routerAlreadySent = localStorage.getItem('doco_anp_meet_router_sent') === eventId
       || localStorage.getItem('doco_anp_meet_sent') === eventId;
     const metaAlreadySent = localStorage.getItem('doco_anp_meet_meta_sent') === eventId;
+    const mauticAlreadySent = localStorage.getItem('doco_anp_meet_mautic_sent') === eventId;
     const routerRequest = routerAlreadySent ? Promise.resolve() : fetch('/api/anp-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -85,10 +86,6 @@
     }).catch(() => {
       localStorage.setItem('doco_anp_meet_router_pending', eventId);
     });
-
-    const attendanceUrl = new URL('https://n8n.agenciadoco.com.br/webhook/anp-meet-presenca-teste');
-    attendanceUrl.searchParams.set('event_id', eventId);
-    if (leadData.email) attendanceUrl.searchParams.set('email', leadData.email);
 
     const metaRequest = metaAlreadySent ? Promise.resolve() : Promise.all([
       leadData.email ? sha256(leadData.email) : Promise.resolve(''),
@@ -119,10 +116,31 @@
       localStorage.setItem('doco_anp_meet_meta_pending', eventId);
     });
 
+    const mauticRequest = mauticAlreadySent || !leadData.email ? Promise.resolve() : (() => {
+      const formData = new URLSearchParams();
+      formData.set('mauticform[email]', leadData.email);
+      formData.set('mauticform[formId]', '10');
+      formData.set('mauticform[formName]', 'webhookparticipoudowebinario');
+      return fetch('/api/mautic-webinar-attended', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: formData,
+        keepalive: true,
+        redirect: 'manual'
+      }).then((response) => {
+        if (!response.ok && response.type !== 'opaqueredirect' && response.status !== 0) {
+          throw new Error(`Mautic HTTP ${response.status}`);
+        }
+        localStorage.setItem('doco_anp_meet_mautic_sent', eventId);
+      }).catch(() => {
+        localStorage.setItem('doco_anp_meet_mautic_pending', eventId);
+      });
+    })();
+
     Promise.race([
-      Promise.allSettled([routerRequest, metaRequest]),
+      Promise.allSettled([routerRequest, metaRequest, mauticRequest]),
       new Promise((resolve) => window.setTimeout(resolve, 4000))
-    ]).finally(() => location.replace(attendanceUrl.toString()));
+    ]).finally(() => location.replace('https://meet.google.com/onf-qfve-ihf'));
   </script>
   <style>
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3ede4; color: #1f2b22; font: 16px/1.5 Arial, sans-serif; text-align: center; }
