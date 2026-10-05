@@ -58,8 +58,13 @@
       return result;
     }, {});
 
-    const alreadySent = localStorage.getItem('doco_anp_meet_sent') === eventId;
-    const routerRequest = alreadySent ? Promise.resolve() : fetch('/api/anp-events', {
+    // The legacy flag only proved that the router succeeded; it did not prove
+    // that Meta CAPI succeeded. Honor it for the router to avoid a replay, but
+    // let Meta retry independently.
+    const routerAlreadySent = localStorage.getItem('doco_anp_meet_router_sent') === eventId
+      || localStorage.getItem('doco_anp_meet_sent') === eventId;
+    const metaAlreadySent = localStorage.getItem('doco_anp_meet_meta_sent') === eventId;
+    const routerRequest = routerAlreadySent ? Promise.resolve() : fetch('/api/anp-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
@@ -76,14 +81,16 @@
       })
     }).then((response) => {
       if (!response.ok) throw new Error(`Tracking HTTP ${response.status}`);
-      localStorage.setItem('doco_anp_meet_sent', eventId);
+      localStorage.setItem('doco_anp_meet_router_sent', eventId);
+    }).catch(() => {
+      localStorage.setItem('doco_anp_meet_router_pending', eventId);
     });
 
     const attendanceUrl = new URL('https://n8n.agenciadoco.com.br/webhook/anp-meet-presenca-teste');
     attendanceUrl.searchParams.set('event_id', eventId);
     if (leadData.email) attendanceUrl.searchParams.set('email', leadData.email);
 
-    const metaRequest = alreadySent ? Promise.resolve() : Promise.all([
+    const metaRequest = metaAlreadySent ? Promise.resolve() : Promise.all([
       leadData.email ? sha256(leadData.email) : Promise.resolve(''),
       leadData.phone ? sha256(leadData.phone.startsWith('55') ? leadData.phone : `55${leadData.phone}`) : Promise.resolve(''),
       sha256(leadData.email || leadData.phone || eventId)
@@ -107,7 +114,10 @@
       })
     })).then((response) => {
       if (!response.ok) throw new Error(`Meta CAPI HTTP ${response.status}`);
-    }).catch(() => {});
+      localStorage.setItem('doco_anp_meet_meta_sent', eventId);
+    }).catch(() => {
+      localStorage.setItem('doco_anp_meet_meta_pending', eventId);
+    });
 
     Promise.race([
       Promise.allSettled([routerRequest, metaRequest]),

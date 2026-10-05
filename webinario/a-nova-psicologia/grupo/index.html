@@ -25,8 +25,6 @@
       destination: 'whatsapp_group',
       source_url: location.href
     };
-    window.dataLayer.push(eventPayload);
-
     if (localStorage.getItem('doco_cookie_consent') === 'granted') {
       const gtm = document.createElement('script');
       gtm.async = true;
@@ -50,6 +48,7 @@
     } catch (_) {}
     const eventId = leadData.eventId || fallbackEventId;
     eventPayload.event_id = eventId;
+    window.dataLayer.push(eventPayload);
     const sha256 = async (value) => {
       const bytes = new TextEncoder().encode(String(value || '').trim().toLowerCase());
       const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -62,8 +61,13 @@
       return result;
     }, {});
 
-    const alreadySent = localStorage.getItem('doco_anp_group_sent') === eventId;
-    const trackingRequest = alreadySent ? Promise.resolve() : fetch('/api/anp-events', {
+    // The legacy flag only proved that the router succeeded; it did not prove
+    // that Meta CAPI succeeded. Honor it for the router to avoid a replay, but
+    // let Meta retry independently.
+    const routerAlreadySent = localStorage.getItem('doco_anp_group_router_sent') === eventId
+      || localStorage.getItem('doco_anp_group_sent') === eventId;
+    const metaAlreadySent = localStorage.getItem('doco_anp_group_meta_sent') === eventId;
+    const trackingRequest = routerAlreadySent ? Promise.resolve() : fetch('/api/anp-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,
@@ -84,13 +88,13 @@
       })
     }).then((response) => {
       if (!response.ok) throw new Error(`Tracking HTTP ${response.status}`);
-      localStorage.setItem('doco_anp_group_sent', eventId);
+      localStorage.setItem('doco_anp_group_router_sent', eventId);
       sessionStorage.removeItem('doco_anp_lead');
     }).catch(() => {
       localStorage.setItem('doco_anp_group_pending', eventId);
     });
 
-    const metaRequest = alreadySent ? Promise.resolve() : Promise.all([
+    const metaRequest = metaAlreadySent ? Promise.resolve() : Promise.all([
       leadData.email ? sha256(leadData.email) : Promise.resolve(''),
       leadData.phone ? sha256(leadData.phone.startsWith('55') ? leadData.phone : `55${leadData.phone}`) : Promise.resolve(''),
       sha256(leadData.email || leadData.phone || eventId)
@@ -114,7 +118,10 @@
       })
     })).then((response) => {
       if (!response.ok) throw new Error(`Meta CAPI HTTP ${response.status}`);
-    }).catch(() => {});
+      localStorage.setItem('doco_anp_group_meta_sent', eventId);
+    }).catch(() => {
+      localStorage.setItem('doco_anp_group_meta_pending', eventId);
+    });
 
     Promise.race([
       Promise.allSettled([trackingRequest, metaRequest]),
