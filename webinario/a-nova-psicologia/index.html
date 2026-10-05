@@ -1297,36 +1297,61 @@
           return;
         }
 
-        const dataCrazyPromise = sendDataCrazyLead(leadData);
-        const mauticPromise = sendMauticLead(leadData);
+        const destinationKeys = {
+          datacrazy: 'doco_anp_registration_datacrazy_sent',
+          mautic: 'doco_anp_registration_mautic_sent',
+          spreadsheet: 'doco_anp_registration_spreadsheet_sent',
+          meta: 'doco_anp_registration_meta_sent'
+        };
+        const wasSent = (destination) => localStorage.getItem(destinationKeys[destination]) === eventId;
+        const markSent = (destination) => localStorage.setItem(destinationKeys[destination], eventId);
+        const dataCrazyPromise = wasSent('datacrazy')
+          ? Promise.resolve()
+          : sendDataCrazyLead(leadData).then(() => markSent('datacrazy'));
+        const mauticPromise = wasSent('mautic')
+          ? Promise.resolve()
+          : sendMauticLead(leadData).then(() => markSent('mautic'));
 
         Promise.all([dataCrazyPromise, mauticPromise]).then(async () => {
-          const spreadsheetPromise = fetch(registrationEndpoint, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: new URLSearchParams(data),
-            keepalive: true
-          });
-          spreadsheetPromise.catch(() => window.docoTracking.push('spreadsheet_error', {
-            ...trackingContext,
-            event_id: eventId,
-            error_type: 'network'
-          }));
-          window.docoTracking.push('generate_lead', {
-            ...trackingContext, ...attribution,
-            event_id: eventId,
-            event_category: 'conversion',
-            conversion_name: 'webinar_registration',
-            form_id: 'webinar_registration', form_location: formLocation, lead_type: 'webinar_registration'
-          });
-          const capiPromise = sendMetaCapiLead(leadData, eventId)
-            .catch(() => reportCapiError('Lead', eventId));
+          const spreadsheetPromise = wasSent('spreadsheet')
+            ? Promise.resolve()
+            : fetch(registrationEndpoint, {
+              method: 'POST',
+              mode: 'no-cors',
+              body: new URLSearchParams(data),
+              keepalive: true
+            }).then(() => markSent('spreadsheet')).catch((error) => {
+              window.docoTracking.push('spreadsheet_error', {
+                ...trackingContext,
+                event_id: eventId,
+                error_type: 'network'
+              });
+              throw error;
+            });
+          let capiPromise = Promise.resolve();
+          if (!wasSent('meta')) {
+            window.docoTracking.push('generate_lead', {
+              ...trackingContext, ...attribution,
+              event_id: eventId,
+              event_category: 'conversion',
+              conversion_name: 'webinar_registration',
+              form_id: 'webinar_registration', form_location: formLocation, lead_type: 'webinar_registration'
+            });
+            capiPromise = sendMetaCapiLead(leadData, eventId).then(() => markSent('meta')).catch((error) => {
+              reportCapiError('Lead', eventId);
+              throw error;
+            });
+          }
           sessionStorage.setItem('doco_anp_lead', persistedLead);
           localStorage.setItem('doco_anp_lead', persistedLead);
-          localStorage.setItem('doco_anp_registration_sent', eventId);
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
+          const secondaryCompletion = Promise.allSettled([capiPromise, spreadsheetPromise]).then(() => {
+            if (Object.keys(destinationKeys).every(wasSent)) {
+              localStorage.setItem('doco_anp_registration_sent', eventId);
+            }
+          });
           await Promise.race([
-            Promise.allSettled([capiPromise, spreadsheetPromise]),
+            secondaryCompletion,
             new Promise((resolve) => window.setTimeout(resolve, 1500))
           ]);
           form.reset();
