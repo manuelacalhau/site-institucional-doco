@@ -1315,19 +1315,24 @@
         Promise.all([dataCrazyPromise, mauticPromise]).then(async () => {
           const spreadsheetPromise = wasSent('spreadsheet')
             ? Promise.resolve()
-            : fetch(registrationEndpoint, {
+            : (() => {
+              // Apps Script é enviado em no-cors: o navegador pode concluir o
+              // POST sem expor uma resposta utilizável. Marque o despacho no
+              // momento em que ele é iniciado para impedir novos envios do
+              // mesmo cadastro durante redirecionamentos ou retentativas.
+              markSent('spreadsheet');
+              fetch(registrationEndpoint, {
               method: 'POST',
               mode: 'no-cors',
               body: new URLSearchParams(data),
               keepalive: true
-            }).then(() => markSent('spreadsheet')).catch((error) => {
-              window.docoTracking.push('spreadsheet_error', {
-                ...trackingContext,
-                event_id: eventId,
-                error_type: 'network'
-              });
-              throw error;
-            });
+              }).catch(() => window.docoTracking.push('spreadsheet_error', {
+                  ...trackingContext,
+                  event_id: eventId,
+                  error_type: 'network'
+                }));
+              return Promise.resolve();
+            })();
           let capiPromise = Promise.resolve();
           if (!wasSent('meta')) {
             window.docoTracking.push('generate_lead', {
@@ -1350,10 +1355,8 @@
               localStorage.setItem('doco_anp_registration_sent', eventId);
             }
           });
-          // Não redirecione enquanto um destino ainda estiver pendente. Em
-          // particular, a chamada no-cors da planilha pode levar mais que
-          // 1,5 s; navegar antes disso abortava a requisição e fazia o mesmo
-          // lead reaparecer como cadastro incompleto.
+          // O Apps Script já foi despachado com keepalive. Aguarde aqui apenas
+          // os destinos que oferecem confirmação observável.
           await secondaryCompletion;
           form.reset();
           window.setTimeout(() => window.location.assign(whatsappGroupUrl), 700);
