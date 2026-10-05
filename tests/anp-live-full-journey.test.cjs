@@ -58,8 +58,20 @@ assert.ok(qa.name && qa.email && qa.phone,
     await page.locator('#whatsapp').fill(qa.phone);
     await page.locator('#consentimento').check();
     await page.locator('#lead-form button[type="submit"]').click();
-    await page.waitForFunction(() => localStorage.getItem('doco_anp_registration_sent'), null, { timeout: 20_000 });
     await page.waitForTimeout(5_000);
+    // O cadastro redireciona para o WhatsApp assim que os destinos terminam.
+    // Volte ao domínio antes de consultar o localStorage; uma navegação externa
+    // abortada pode deixar o Chromium numa página de erro com origem opaca.
+    await page.goto(`${base}/`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    const flags = await page.evaluate(() => Object.fromEntries([
+      'doco_anp_registration_datacrazy_sent',
+      'doco_anp_registration_mautic_sent',
+      'doco_anp_registration_spreadsheet_sent',
+      'doco_anp_registration_meta_sent',
+      'doco_anp_registration_sent'
+    ].map(key => [key, localStorage.getItem(key)])));
+    assert.ok(flags.doco_anp_registration_sent,
+      `Cadastro não concluiu todos os destinos: ${JSON.stringify(flags)}`);
   }
 
   await submitRegistration();

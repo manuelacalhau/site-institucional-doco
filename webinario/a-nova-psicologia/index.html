@@ -1345,15 +1345,16 @@
           sessionStorage.setItem('doco_anp_lead', persistedLead);
           localStorage.setItem('doco_anp_lead', persistedLead);
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
-          const secondaryCompletion = Promise.allSettled([capiPromise, spreadsheetPromise]).then(() => {
+          const secondaryCompletion = Promise.all([capiPromise, spreadsheetPromise]).then(() => {
             if (Object.keys(destinationKeys).every(wasSent)) {
               localStorage.setItem('doco_anp_registration_sent', eventId);
             }
           });
-          await Promise.race([
-            secondaryCompletion,
-            new Promise((resolve) => window.setTimeout(resolve, 1500))
-          ]);
+          // Não redirecione enquanto um destino ainda estiver pendente. Em
+          // particular, a chamada no-cors da planilha pode levar mais que
+          // 1,5 s; navegar antes disso abortava a requisição e fazia o mesmo
+          // lead reaparecer como cadastro incompleto.
+          await secondaryCompletion;
           form.reset();
           window.setTimeout(() => window.location.assign(whatsappGroupUrl), 700);
         }).catch((error) => {
