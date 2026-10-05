@@ -1250,7 +1250,7 @@
       // emitir `input`. A trava acima mantém um único evento por carregamento.
       form.addEventListener('focusin', trackFormStart, { capture: true });
       form.addEventListener('input', trackFormStart, { capture: true });
-      form.addEventListener('submit', (event) => {
+      form.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (submitting) return;
         status.classList.add('show');
@@ -1274,20 +1274,39 @@
         Array.from(data.entries()).forEach(([key, value]) => {
           if (typeof value === 'string') data.set(key, escapeSpreadsheetFormula(value));
         });
-        const eventId = createEventId('lead');
         submitting = true;
         submitButton.disabled = true;
         status.textContent = 'Enviando sua inscrição...';
-        const spreadsheetPromise = fetch(registrationEndpoint, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: new URLSearchParams(data),
-          keepalive: true
+        const identityHash = await sha256(`a-nova-psicologia|${leadData.email}|${leadData.phone}`);
+        const eventId = `anp-lead-${identityHash.slice(0, 48)}`;
+        const groupEventId = `anp-group-${identityHash.slice(0, 48)}`;
+        const meetEventId = `anp-meet-${identityHash.slice(0, 48)}`;
+        const persistedLead = JSON.stringify({
+          ...leadData,
+          registration_event_id: eventId,
+          group_event_id: groupEventId,
+          meet_event_id: meetEventId,
+          stored_at: Date.now()
         });
+
+        if (localStorage.getItem('doco_anp_registration_sent') === eventId) {
+          sessionStorage.setItem('doco_anp_lead', persistedLead);
+          localStorage.setItem('doco_anp_lead', persistedLead);
+          status.textContent = 'Inscrição já confirmada. Abrindo o grupo do WhatsApp...';
+          window.setTimeout(() => window.location.assign(whatsappGroupUrl), 250);
+          return;
+        }
+
         const dataCrazyPromise = sendDataCrazyLead(leadData);
         const mauticPromise = sendMauticLead(leadData);
 
         Promise.all([dataCrazyPromise, mauticPromise]).then(async () => {
+          const spreadsheetPromise = fetch(registrationEndpoint, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: new URLSearchParams(data),
+            keepalive: true
+          });
           spreadsheetPromise.catch(() => window.docoTracking.push('spreadsheet_error', {
             ...trackingContext,
             event_id: eventId,
@@ -1302,14 +1321,9 @@
           });
           const capiPromise = sendMetaCapiLead(leadData, eventId)
             .catch(() => reportCapiError('Lead', eventId));
-          const persistedLead = JSON.stringify({
-            ...leadData,
-            group_event_id: createEventId('group'),
-            meet_event_id: createEventId('meet'),
-            stored_at: Date.now()
-          });
           sessionStorage.setItem('doco_anp_lead', persistedLead);
           localStorage.setItem('doco_anp_lead', persistedLead);
+          localStorage.setItem('doco_anp_registration_sent', eventId);
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
           await Promise.race([
             Promise.allSettled([capiPromise, spreadsheetPromise]),
