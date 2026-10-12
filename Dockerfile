@@ -7,6 +7,7 @@ COPY blog /usr/share/nginx/html/blog
 COPY apresentacao-implementacao /usr/share/nginx/html/apresentacao-implementacao
 COPY apresentacao-implementacao-2 /usr/share/nginx/html/apresentacao-implementacao-2
 COPY apresentacao-webinario /usr/share/nginx/html/apresentacao-webinario
+COPY apresentacao-mentoria /usr/share/nginx/html/apresentacao-mentoria
 COPY webinario /usr/share/nginx/html/webinario
 COPY comunidade /usr/share/nginx/html/comunidade
 COPY robots.txt sitemap.xml security.txt /usr/share/nginx/html/
