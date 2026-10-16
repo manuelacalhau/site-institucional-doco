@@ -1062,6 +1062,7 @@
     const metaCapiEndpoint = '/api/meta-capi';
     const dataCrazyEndpoint = '/api/datacrazy-webinar';
     const mauticEndpoint = '/api/mautic-webinar';
+    const calendarEndpoint = '/api/anp-events';
     const whatsappGroupUrl = '/webinario/a-nova-psicologia/grupo/';
 
     const getCookie = (name) => document.cookie
@@ -1222,6 +1223,21 @@
         throw new Error(`Mautic respondeu com HTTP ${response.status}`);
       }
     };
+    const sendCalendarInvite = async (leadData, eventId) => {
+      const response = await fetch(calendarEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          event_name: 'Lead', event_id: eventId,
+          event_time: Math.floor(Date.now() / 1000),
+          webinar_edition: webinarEdition,
+          source: 'webinar_registration', source_url: window.location.href,
+          contact: leadData, ...attribution
+        })
+      });
+      if (!response.ok) throw new Error(`Calendar respondeu com HTTP ${response.status}`);
+    };
     let formStartSent = false;
 
     document.querySelectorAll('[data-registration-form]').forEach((form) => {
@@ -1304,7 +1320,8 @@
           datacrazy: 'doco_anp_registration_datacrazy_sent',
           mautic: 'doco_anp_registration_mautic_sent',
           spreadsheet: 'doco_anp_registration_spreadsheet_sent',
-          meta: 'doco_anp_registration_meta_sent'
+          meta: 'doco_anp_registration_meta_sent',
+          calendar: 'doco_anp_registration_calendar_sent'
         };
         const wasSent = (destination) => localStorage.getItem(destinationKeys[destination]) === eventId;
         const markSent = (destination) => localStorage.setItem(destinationKeys[destination], eventId);
@@ -1316,6 +1333,12 @@
           : sendMauticLead(leadData).then(() => markSent('mautic'));
 
         Promise.all([dataCrazyPromise, mauticPromise]).then(async () => {
+          const calendarPromise = wasSent('calendar') ? Promise.resolve()
+            : sendCalendarInvite(leadData, eventId).then(() => markSent('calendar')).catch(() => {
+              window.docoTracking.push('calendar_error', {
+                ...trackingContext, event_id: eventId, error_type: 'network'
+              });
+            });
           const spreadsheetPromise = wasSent('spreadsheet')
             ? Promise.resolve()
             : (() => {
@@ -1353,7 +1376,7 @@
           sessionStorage.setItem('doco_anp_lead', persistedLead);
           localStorage.setItem('doco_anp_lead', persistedLead);
           status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
-          const secondaryCompletion = Promise.all([capiPromise, spreadsheetPromise]).then(() => {
+          const secondaryCompletion = Promise.all([capiPromise, spreadsheetPromise, calendarPromise]).then(() => {
             if (Object.keys(destinationKeys).every(wasSent)) {
               localStorage.setItem('doco_anp_registration_sent', eventId);
             }
