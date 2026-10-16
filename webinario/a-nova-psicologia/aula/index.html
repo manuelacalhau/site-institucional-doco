@@ -18,6 +18,8 @@
     }
 
     const query = new URLSearchParams(location.search);
+    const webinarEdition = '2026-10-17';
+    const editionEventId = (id, edition) => edition === webinarEdition ? id : `${webinarEdition}-${id}`;
     const fallbackEventId = `anp-meet-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
     let savedLead = {};
     try {
@@ -29,7 +31,7 @@
       email: String(query.get('email') || savedLead.email || '').trim().toLowerCase().slice(0, 320),
       phone: String(query.get('phone') || savedLead.phone || '').replace(/\D/g, '').slice(0, 40)
     };
-    const eventId = String(savedLead.meet_event_id || query.get('event_id') || fallbackEventId).slice(0, 200);
+    const eventId = String(editionEventId(savedLead.meet_event_id || query.get('event_id') || fallbackEventId, savedLead.webinar_edition)).slice(0, 200);
     const sha256 = async (value) => {
       const bytes = new TextEncoder().encode(String(value || '').trim().toLowerCase());
       const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -38,6 +40,7 @@
     window.dataLayer.push({
       event: 'ParticipouWebinario',
       event_id: eventId,
+      webinar_edition: webinarEdition,
       event_name: 'ParticipouWebinario',
       funnel: 'a_nova_psicologia',
       destination: 'google_meet',
@@ -74,6 +77,7 @@
         event_id: eventId,
         event_time: Math.floor(Date.now() / 1000),
         source: 'website',
+        webinar_edition: webinarEdition,
         source_url: location.href,
         consent: localStorage.getItem('doco_cookie_consent') === 'granted',
         name: leadData.name,
@@ -100,6 +104,7 @@
         event_id: eventId,
         event_time: Math.floor(Date.now() / 1000),
         action_source: 'website',
+        webinar_edition: webinarEdition,
         event_source_url: location.href,
         user_data: {
           em: emailHash ? [emailHash] : undefined,
@@ -140,7 +145,7 @@
     Promise.race([
       Promise.allSettled([routerRequest, metaRequest, mauticRequest]),
       new Promise((resolve) => window.setTimeout(resolve, 4000))
-    ]).finally(() => location.replace('https://meet.google.com/onf-qfve-ihf'));
+    ]).finally(() => location.replace('https://meet.google.com/yir-bxfr-zvv'));
   </script>
   <style>
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3ede4; color: #1f2b22; font: 16px/1.5 Arial, sans-serif; text-align: center; }
@@ -151,7 +156,7 @@
 <body>
   <main>
     <p>Registrando seu acesso e abrindo a aula no Google Meet…</p>
-    <p><a href="https://meet.google.com/onf-qfve-ihf">Clique aqui se a aula não abrir automaticamente</a></p>
+    <p><a href="https://meet.google.com/yir-bxfr-zvv">Clique aqui se a aula não abrir automaticamente</a></p>
   </main>
 </body>
 </html>

@@ -16,10 +16,13 @@
         ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted'
       });
     }
+    const webinarEdition = '2026-10-17';
+    const editionEventId = (id, edition) => edition === webinarEdition ? id : `${webinarEdition}-${id}`;
     const fallbackEventId = `anp-group-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
     const eventPayload = {
       event: 'EntrouNoGrupo',
       event_id: fallbackEventId,
+      webinar_edition: webinarEdition,
       event_name: 'EntrouNoGrupo',
       funnel: 'a_nova_psicologia',
       destination: 'whatsapp_group',
@@ -42,7 +45,7 @@
           name: String(savedLead.name || '').trim().slice(0, 200),
           email: String(savedLead.email || '').trim().toLowerCase().slice(0, 320),
           phone: String(savedLead.phone || '').replace(/\D/g, '').slice(0, 40),
-          eventId: String(savedLead.group_event_id || fallbackEventId).slice(0, 200)
+          eventId: String(editionEventId(savedLead.group_event_id || fallbackEventId, savedLead.webinar_edition)).slice(0, 200)
         };
       }
     } catch (_) {}
@@ -76,6 +79,7 @@
         event_id: eventId,
         event_time: Math.floor(Date.now() / 1000),
         source: 'website',
+        webinar_edition: webinarEdition,
         source_url: location.href,
         consent: localStorage.getItem('doco_cookie_consent') === 'granted',
         name: leadData.name,
@@ -107,6 +111,7 @@
         event_id: eventId,
         event_time: Math.floor(Date.now() / 1000),
         action_source: 'website',
+        webinar_edition: webinarEdition,
         event_source_url: location.href,
         user_data: {
           em: emailHash ? [emailHash] : undefined,

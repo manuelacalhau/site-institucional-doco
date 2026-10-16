@@ -959,7 +959,8 @@
   </aside>
 
   <script>
-    const trackingContext = { page_type: 'webinar', page_name: 'a_nova_psicologia', funnel_stage: 'lead_capture' };
+    const webinarEdition = '2026-10-17';
+    const trackingContext = { webinar_edition: webinarEdition, page_type: 'webinar', page_name: 'a_nova_psicologia', funnel_stage: 'lead_capture' };
     const cookieConsent = document.querySelector('[data-cookie-consent]');
     const savedConsent = localStorage.getItem('doco_cookie_consent');
     if (!savedConsent) cookieConsent.hidden = false;
@@ -1191,6 +1192,7 @@
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         body: JSON.stringify({
+          webinar_edition: webinarEdition,
           name: leadData.name,
           email: leadData.email,
           phone: leadData.phone,
@@ -1277,12 +1279,13 @@
         submitting = true;
         submitButton.disabled = true;
         status.textContent = 'Enviando sua inscrição...';
-        const identityHash = await sha256(`a-nova-psicologia|${leadData.email}|${leadData.phone}`);
+        const identityHash = await sha256(`a-nova-psicologia|${webinarEdition}|${leadData.email}|${leadData.phone}`);
         const eventId = `anp-lead-${identityHash.slice(0, 48)}`;
         const groupEventId = `anp-group-${identityHash.slice(0, 48)}`;
         const meetEventId = `anp-meet-${identityHash.slice(0, 48)}`;
         const persistedLead = JSON.stringify({
           ...leadData,
+          webinar_edition: webinarEdition,
           registration_event_id: eventId,
           group_event_id: groupEventId,
           meet_event_id: meetEventId,
