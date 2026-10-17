@@ -13,6 +13,8 @@
   <meta property="og:description" content="Aula online, ao vivo e gratuita para psicólogos com agenda cheia que querem ampliar a participação de pacientes particulares sem depender de mais sessões.">
   <meta property="og:url" content="https://agenciadoco.com.br/webinario/a-nova-psicologia/">
   <title>A nova psicologia | doco</title>
+  <script src="editions.js"></script>
+  <script src="reliability.js"></script>
   <script>document.documentElement.classList.add('motion-ready');</script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -21,7 +23,7 @@
       ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', wait_for_update: 500
     });
     const earlyMetaQuery = new URLSearchParams(window.location.search);
-    const earlyFbclid = String(earlyMetaQuery.get('fbclid') || '').trim();
+    const earlyFbclid = String(earlyMetaQuery.get('fbclid') || '');
     const earlyPageViewEventId = `webinar-pageview-${Date.now()}-${typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : Math.random().toString(36).slice(2, 18)}`;
@@ -29,7 +31,7 @@
       containerId: 'GTM-WJ7MXFDT',
       loaded: false,
       pageViewEventId: earlyPageViewEventId,
-      fbc: earlyFbclid ? `fb.1.${Date.now()}.${earlyFbclid}` : '',
+      fbc: ANP.fbc(earlyFbclid),
       prepareMetaPixel() {
         const pixelId = '815401080953791';
         if (typeof window.fbq !== 'function') {
@@ -51,10 +53,10 @@
         }
         window.fbq('init', pixelId);
         window.fbq('set', 'autoConfig', false, pixelId);
-        window.fbq('track', 'PageView', {}, { eventID: this.pageViewEventId });
+        window.fbq('track', 'PageView', {funnel:'a-nova-psicologia',webinar_edition:ANPEditions.resolve(window.location.search)?.id}, { eventID: this.pageViewEventId });
       },
       load() {
-        if (this.loaded) return;
+        if (this.loaded || !ANP.consent() || !ANPEditions.resolve(window.location.search)) return;
         this.loaded = true;
         this.prepareMetaPixel();
         window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
@@ -63,13 +65,11 @@
         script.src = `https://www.googletagmanager.com/gtm.js?id=${this.containerId}`;
         document.head.appendChild(script);
       },
-      push(event, parameters = {}) { window.dataLayer.push({ event, ...parameters }); }
+      push(event, parameters = {}) { if (ANP.consent()) window.dataLayer.push({ event, ...parameters }); }
     };
-    // Inicia o Pixel e o GTM assim que o cabeçalho é processado. O Consent Mode
-    // já está negado por padrão; a inicialização antecipada evita perder o
-    // PageView quando a pessoa fecha o navegador interno antes do fim do HTML.
+    // Reaplica a autorização salva antes de iniciar Pixel e GTM.
     window.docoTracking.load();
-    if (localStorage.getItem('doco_cookie_consent') === 'granted') {
+    if (ANP.local.getItem('doco_cookie_consent') === 'granted') {
       window.gtag('consent', 'update', { ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted' });
     }
   </script>
@@ -959,15 +959,16 @@
   </aside>
 
   <script>
-    const webinarEdition = '2026-10-17';
+    const webinarConfig = ANPEditions.resolve(window.location.search);
+    const webinarEdition = webinarConfig?.id || ANPEditions.config.current;
     const trackingContext = { webinar_edition: webinarEdition, page_type: 'webinar', page_name: 'a_nova_psicologia', funnel_stage: 'lead_capture' };
     const cookieConsent = document.querySelector('[data-cookie-consent]');
-    const savedConsent = localStorage.getItem('doco_cookie_consent');
+    const savedConsent = ANP.local.getItem('doco_cookie_consent');
     if (!savedConsent) cookieConsent.hidden = false;
     document.querySelectorAll('[data-consent]').forEach((button) => {
       button.addEventListener('click', () => {
         const granted = button.dataset.consent === 'granted';
-        localStorage.setItem('doco_cookie_consent', granted ? 'granted' : 'denied');
+        ANP.local.setItem('doco_cookie_consent', granted ? 'granted' : 'denied');
         window.gtag('consent', 'update', {
           ad_storage: granted ? 'granted' : 'denied', analytics_storage: granted ? 'granted' : 'denied',
           ad_user_data: granted ? 'granted' : 'denied', ad_personalization: granted ? 'granted' : 'denied'
@@ -977,18 +978,7 @@
       });
     });
     const query = new URLSearchParams(window.location.search);
-    const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
-    const attribution = attributionKeys.reduce((result, key) => {
-      const value = query.get(key);
-      if (value) {
-        sessionStorage.setItem(`doco_${key}`, value);
-        if (!localStorage.getItem(`doco_first_${key}`)) localStorage.setItem(`doco_first_${key}`, value);
-        localStorage.setItem(`doco_last_${key}`, value);
-      }
-      result[key] = value || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`) || undefined;
-      result[`first_${key}`] = localStorage.getItem(`doco_first_${key}`) || undefined;
-      return result;
-    }, {});
+    const attribution = ANP.attribution(window.location.search);
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const staggerGroups = [
@@ -1063,7 +1053,7 @@
     const dataCrazyEndpoint = '/api/datacrazy-webinar';
     const mauticEndpoint = '/api/mautic-webinar';
     const calendarEndpoint = '/api/anp-events';
-    const whatsappGroupUrl = '/webinario/a-nova-psicologia/grupo/';
+    const whatsappGroupUrl = '/webinario/a-nova-psicologia/grupo/?edition=' + encodeURIComponent(webinarEdition);
 
     const getCookie = (name) => document.cookie
       .split('; ')
@@ -1075,7 +1065,7 @@
     const sha256 = async (value) => {
       const normalized = value.trim().toLowerCase();
       const bytes = new TextEncoder().encode(normalized);
-      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      const digest = await ANP.deadline(crypto.subtle.digest('SHA-256', bytes),3000,'hash_timeout');
       return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
     };
 
@@ -1095,11 +1085,11 @@
     const anonymousVisitorSeed = `${Date.now()}-${typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : Math.random().toString(36).slice(2, 18)}`;
-    const anonymousExternalId = sha256(anonymousVisitorSeed);
+    const anonymousExternalId = () => sha256(anonymousVisitorSeed);
 
     const buildMetaUserData = async (leadData) => {
       const userData = {
-        external_id: [await anonymousExternalId]
+        external_id: [await anonymousExternalId()]
       };
 
       if (leadData) {
@@ -1110,37 +1100,38 @@
       }
 
       // Identificadores de cookies de publicidade só podem acompanhar o evento
-      // quando a pessoa autorizou a medição no banner. A CAPI continua ativa
-      // sem esses cookies usando o external_id anônimo gerado pela própria página.
+      // quando a pessoa autorizou a medição no banner.
       // O clique atual pode ser atribuído sem depender da criação do cookie
       // _fbc: o valor é derivado do fbclid da própria URL no formato da Meta.
       userData.fbc = window.docoTracking.fbc || undefined;
       if (hasMeasurementConsent()) {
         userData.fbp = getCookie('_fbp') || undefined;
-        userData.fbc = getCookie('_fbc') || userData.fbc;
+        userData.fbc = window.docoTracking.fbc || ANP.fbc('', getCookie('_fbc'));
       }
       userData.client_user_agent = navigator.userAgent;
 
       return { userData };
     };
 
-    const hasMeasurementConsent = () => localStorage.getItem('doco_cookie_consent') === 'granted';
+    const hasMeasurementConsent = () => ANP.local.getItem('doco_cookie_consent') === 'granted';
 
     const sendMetaCapiEvent = async ({ eventName, eventId, customData, leadData }) => {
+      if (!hasMeasurementConsent() || !webinarConfig) return {skipped: true};
       const { userData } = await buildMetaUserData(leadData);
+      if (!hasMeasurementConsent() || !webinarConfig) return {skipped: true};
 
-      const response = await fetch(metaCapiEndpoint, {
+      const response = await ANP.request(metaCapiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         body: JSON.stringify({
           event_name: eventName,
           event_id: eventId,
-          event_time: Math.floor(Date.now() / 1000),
+          event_time: ANP.eventTime(eventId),
           action_source: 'website',
-          event_source_url: window.location.href,
+          event_source_url: ANP.sourceURL(window.location.href),
           user_data: userData,
-          custom_data: customData
+          custom_data: {...customData, webinar_edition: webinarEdition, funnel: 'a-nova-psicologia', measurement_consent: true}
         })
       });
 
@@ -1162,9 +1153,7 @@
       ...attribution,
       event_id: pageViewEventId
     });
-    // O contêiner precisa estar disponível para consumir eventos do dataLayer
-    // mesmo antes da escolha do visitante. O Consent Mode acima mantém os
-    // armazenamentos negados até que haja consentimento.
+    // O contêiner e a CAPI só iniciam após autorização de medição.
     window.docoTracking.load();
     sendMetaCapiEvent({
       eventName: 'PageView',
@@ -1188,20 +1177,23 @@
     });
 
     const sendDataCrazyLead = async (leadData) => {
-      const response = await fetch(dataCrazyEndpoint, {
+      const response = await ANP.request(dataCrazyEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         body: JSON.stringify({
           webinar_edition: webinarEdition,
+          consent: hasMeasurementConsent(),
           name: leadData.name,
           email: leadData.email,
           phone: leadData.phone,
-          source_url: window.location.href,
-          ...attribution
+          source_url: ANP.sourceURL(window.location.href),
+          ...ANP.attribution(window.location.search)
         })
       });
       if (!response.ok) throw new Error(`DataCrazy respondeu com HTTP ${response.status}`);
+      const result = await response.json();
+      if (result.ok !== true) throw new Error('DataCrazy não confirmou o cadastro');
     };
 
     const sendMauticLead = async (leadData) => {
@@ -1212,7 +1204,7 @@
       mauticData.set('mauticform[formId]', '9');
       mauticData.set('mauticform[formName]', 'webinarioanovapsicologia');
 
-      const response = await fetch(mauticEndpoint, {
+      const response = await ANP.request(mauticEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
         body: mauticData,
@@ -1222,18 +1214,19 @@
       if (!response.ok && response.type !== 'opaqueredirect' && response.status !== 0) {
         throw new Error(`Mautic respondeu com HTTP ${response.status}`);
       }
+      return {confirmed: response.ok && response.status !== 0};
     };
     const sendCalendarInvite = async (leadData, eventId) => {
-      const response = await fetch(calendarEndpoint, {
+      const response = await ANP.request(calendarEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         body: JSON.stringify({
           event_name: 'Lead', event_id: eventId,
-          event_time: Math.floor(Date.now() / 1000),
+          event_time: ANP.eventTime(eventId),
           webinar_edition: webinarEdition,
-          source: 'webinar_registration', source_url: window.location.href,
-          contact: leadData, ...attribution
+          consent: hasMeasurementConsent(), source: 'webinar_registration', source_url: ANP.sourceURL(window.location.href),
+          contact: leadData, ...ANP.attribution(window.location.search)
         })
       });
       if (!response.ok) throw new Error(`Calendar respondeu com HTTP ${response.status}`);
@@ -1256,7 +1249,7 @@
           form_id: 'webinar_registration',
           form_location: formLocation
         });
-        if (typeof window.fbq === 'function') {
+        if (hasMeasurementConsent() && typeof window.fbq === 'function') {
           window.fbq('trackCustom', 'FormStart', {
             form_id: 'webinar_registration',
             form_location: formLocation
@@ -1271,134 +1264,84 @@
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (submitting) return;
-        status.classList.add('show');
-        if (!form.checkValidity()) {
-          window.docoTracking.push('form_error', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation, error_type: 'validation' });
-          status.textContent = 'Confira os campos obrigatórios antes de continuar.';
-          form.reportValidity();
-          return;
-        }
         const submitButton = form.querySelector('button[type="submit"]');
-        const data = new FormData(form);
-        const leadData = {
-          name: String(data.get('nome') || '').trim(),
-          email: String(data.get('email') || '').trim().toLowerCase(),
-          phone: String(data.get('whatsapp') || '').replace(/\D/g, '')
-        };
-        data.set('pagina', window.location.href);
-        data.set('origem_formulario', formLocation);
-        Object.entries(attribution).forEach(([key, value]) => value && data.set(key, value));
-        data.set('website', '');
-        Array.from(data.entries()).forEach(([key, value]) => {
-          if (typeof value === 'string') data.set(key, escapeSpreadsheetFormula(value));
-        });
+        status.classList.add('show');
+        if (!form.checkValidity()) { form.reportValidity(); return; }
         submitting = true;
         submitButton.disabled = true;
         status.textContent = 'Enviando sua inscrição...';
-        const identityHash = await sha256(`a-nova-psicologia|${webinarEdition}|${leadData.email}|${leadData.phone}`);
-        const eventId = `anp-lead-${identityHash.slice(0, 48)}`;
-        const groupEventId = `anp-group-${identityHash.slice(0, 48)}`;
-        const meetEventId = `anp-meet-${identityHash.slice(0, 48)}`;
-        const persistedLead = JSON.stringify({
-          ...leadData,
-          webinar_edition: webinarEdition,
-          registration_event_id: eventId,
-          group_event_id: groupEventId,
-          meet_event_id: meetEventId,
-          stored_at: Date.now()
-        });
-
-        if (localStorage.getItem('doco_anp_registration_sent') === eventId) {
-          sessionStorage.setItem('doco_anp_lead', persistedLead);
-          localStorage.setItem('doco_anp_lead', persistedLead);
-          status.textContent = 'Inscrição já confirmada. Abrindo o grupo do WhatsApp...';
-          window.setTimeout(() => window.location.assign(whatsappGroupUrl), 250);
-          return;
-        }
-
-        const destinationKeys = {
-          datacrazy: 'doco_anp_registration_datacrazy_sent',
-          mautic: 'doco_anp_registration_mautic_sent',
-          spreadsheet: 'doco_anp_registration_spreadsheet_sent',
-          meta: 'doco_anp_registration_meta_sent',
-          calendar: 'doco_anp_registration_calendar_sent'
-        };
-        const wasSent = (destination) => localStorage.getItem(destinationKeys[destination]) === eventId;
-        const markSent = (destination) => localStorage.setItem(destinationKeys[destination], eventId);
-        const dataCrazyPromise = wasSent('datacrazy')
-          ? Promise.resolve()
-          : sendDataCrazyLead(leadData).then(() => markSent('datacrazy'));
-        const mauticPromise = wasSent('mautic')
-          ? Promise.resolve()
-          : sendMauticLead(leadData).then(() => markSent('mautic'));
-
-        Promise.all([dataCrazyPromise, mauticPromise]).then(async () => {
-          const calendarPromise = wasSent('calendar') ? Promise.resolve()
-            : sendCalendarInvite(leadData, eventId).then(() => markSent('calendar')).catch(() => {
-              window.docoTracking.push('calendar_error', {
-                ...trackingContext, event_id: eventId, error_type: 'network'
-              });
-            });
-          const spreadsheetPromise = wasSent('spreadsheet')
-            ? Promise.resolve()
-            : (() => {
-              // Apps Script é enviado em no-cors: o navegador pode concluir o
-              // POST sem expor uma resposta utilizável. Marque o despacho no
-              // momento em que ele é iniciado para impedir novos envios do
-              // mesmo cadastro durante redirecionamentos ou retentativas.
-              markSent('spreadsheet');
-              fetch(registrationEndpoint, {
-              method: 'POST',
-              mode: 'no-cors',
-              body: new URLSearchParams(data),
-              keepalive: true
-              }).catch(() => window.docoTracking.push('spreadsheet_error', {
-                  ...trackingContext,
-                  event_id: eventId,
-                  error_type: 'network'
-                }));
-              return Promise.resolve();
-            })();
-          let capiPromise = Promise.resolve();
-          if (!wasSent('meta')) {
-            window.docoTracking.push('generate_lead', {
-              ...trackingContext, ...attribution,
-              event_id: eventId,
-              event_category: 'conversion',
-              conversion_name: 'webinar_registration',
-              form_id: 'webinar_registration', form_location: formLocation, lead_type: 'webinar_registration'
-            });
-            capiPromise = sendMetaCapiLead(leadData, eventId).then(() => markSent('meta')).catch((error) => {
-              reportCapiError('Lead', eventId);
-              throw error;
-            });
-          }
-          sessionStorage.setItem('doco_anp_lead', persistedLead);
-          localStorage.setItem('doco_anp_lead', persistedLead);
-          status.textContent = 'Inscrição confirmada. Abrindo o grupo do WhatsApp...';
-          const secondaryCompletion = Promise.all([capiPromise, spreadsheetPromise, calendarPromise]).then(() => {
-            if (Object.keys(destinationKeys).every(wasSent)) {
-              localStorage.setItem('doco_anp_registration_sent', eventId);
-            }
+        let eventId;
+        let redirected = false;
+        try {
+          if (!webinarConfig) throw new Error('edition_unavailable');
+          const data = new FormData(form);
+          const leadData = {name: String(data.get('nome') || '').trim(), email: String(data.get('email') || '').trim().toLowerCase(), phone: ANP.phone(data.get('whatsapp'))};
+          if (!ANP.email(leadData.email) || !leadData.phone) throw new Error('validation_error');
+          const old = ANP.currentLead(webinarEdition);
+          const sameIdentity = old.email === leadData.email;
+          const identityHash = await sha256(`a-nova-psicologia|${webinarEdition}|${leadData.email}`);
+          // Reutilize IDs já emitidos para esta identidade/edição; não reescreva histórico.
+          eventId = sameIdentity && old.registration_event_id || `anp-lead-${identityHash.slice(0,48)}`;
+          const persistedLead = JSON.stringify({...leadData, webinar_edition: webinarEdition,
+            registration_event_id: eventId,
+            group_event_id: sameIdentity && old.group_event_id || `anp-group-${identityHash.slice(0,48)}`,
+            meet_event_id: sameIdentity && old.meet_event_id || `anp-meet-${identityHash.slice(0,48)}`,
+            attribution: ANP.attribution(window.location.search), stored_at: Date.now()});
+          const key = destination => `doco_anp_registration_${destination}_sent`;
+          const wasSent = destination => ANP.local.getItem(key(destination)) === eventId;
+          const markSent = destination => ANP.local.setItem(key(destination), eventId);
+          const redirect = () => {
+            if (redirected) return;
+            redirected = true;
+            ANP.session.setItem('doco_anp_lead', persistedLead);
+            ANP.local.setItem('doco_anp_lead', persistedLead);
+            status.textContent = 'Cadastro confirmado. O envio das orientações por e-mail ainda não foi confirmado. Abrindo o grupo do WhatsApp...';
+            window.location.assign(whatsappGroupUrl);
+          };
+          await ANP.registration({
+            crm: () => wasSent('datacrazy') ? Promise.resolve() : sendDataCrazyLead(leadData).then(() => markSent('datacrazy')),
+            mautic: () => wasSent('mautic') ? Promise.resolve() : sendMauticLead(leadData).then(result => {
+              if (result.confirmed) markSent('mautic');
+              else ANP.local.setItem('doco_anp_registration_mautic_unconfirmed', eventId);
+            }),
+            optional: [
+              async () => {
+                if (ANP.local.getItem('doco_anp_registration_calendar_accepted') === eventId) return;
+                await sendCalendarInvite(leadData, eventId);
+                // Resposta do roteador é aceitação, não entrega do convite.
+                ANP.local.setItem('doco_anp_registration_calendar_accepted', eventId);
+              },
+              async () => {
+                if (ANP.local.getItem('doco_anp_registration_spreadsheet_attempted') === eventId || wasSent('spreadsheet')) return;
+                data.set('whatsapp', leadData.phone);
+                data.set('pagina', ANP.sourceURL(window.location.href));
+                data.set('origem_formulario', formLocation);
+                data.set('webinar_edition', webinarEdition);
+                data.set('event_id', eventId);
+                Object.entries(ANP.attribution(window.location.search)).forEach(([key,value]) => data.set(key,value));
+                Array.from(data.entries()).forEach(([key,value]) => data.set(key,escapeSpreadsheetFormula(value)));
+                // Guarda tentativa para evitar duplicação, sem afirmar gravação.
+                ANP.local.setItem('doco_anp_registration_spreadsheet_attempted', eventId);
+                await ANP.request(registrationEndpoint,{method:'POST', mode:'no-cors',body:new URLSearchParams(data),keepalive:true});
+                ANP.local.setItem('doco_anp_registration_spreadsheet_unconfirmed',eventId);
+              },
+              async () => {
+                if (!hasMeasurementConsent() || wasSent('meta')) return;
+                window.docoTracking.push('generate_lead',{...trackingContext,...ANP.attribution(window.location.search),event_id:eventId,conversion_name:'webinar_registration',form_id:'webinar_registration',form_location:formLocation});
+                try { const result = await sendMetaCapiLead(leadData,eventId); if (!result?.skipped) markSent('meta'); }
+                catch (_) { reportCapiError('Lead',eventId); }
+              }
+            ], redirect
           });
-          // O Apps Script já foi despachado com keepalive. Aguarde aqui apenas
-          // os destinos que oferecem confirmação observável.
-          await secondaryCompletion;
-          form.reset();
-          window.setTimeout(() => window.location.assign(whatsappGroupUrl), 700);
-        }).catch((error) => {
-          const integration = String(error?.message || '').startsWith('Mautic') ? 'mautic' : 'datacrazy';
-          window.docoTracking.push(`${integration}_error`, {
-            ...trackingContext,
-            event_id: eventId,
-            error_type: 'network'
-          });
-          window.docoTracking.push('form_error', { ...trackingContext, form_id: 'webinar_registration', form_location: formLocation, error_type: 'integration' });
-          status.textContent = 'Não foi possível confirmar sua inscrição agora. Tente novamente em instantes.';
-        }).finally(() => {
+          if (wasSent('datacrazy') && wasSent('mautic')) ANP.local.setItem('doco_anp_registration_sent',eventId);
+        } catch (error) {
+          const type = ['datacrazy_error','mautic_error','validation_error'].includes(error.message) ? error.message : 'registration_error';
+          window.docoTracking.push(type,{...trackingContext,event_id:eventId,error_type:type});
+          status.textContent = error.message === 'edition_unavailable' ? 'Esta edição não está disponível para inscrição.' : type === 'validation_error' ? 'Confira o e-mail e o WhatsApp com DDD.' : 'Não foi possível confirmar sua inscrição agora. Tente novamente em instantes.';
+        } finally {
           submitting = false;
           submitButton.disabled = false;
-        });
+        }
       });
     });
 

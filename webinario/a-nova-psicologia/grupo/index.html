@@ -5,134 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>Abrindo o grupo do WhatsApp | doco</title>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
-    window.gtag('consent', 'default', {
-      ad_storage: 'denied', analytics_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied'
-    });
-    if (localStorage.getItem('doco_cookie_consent') === 'granted') {
-      window.gtag('consent', 'update', {
-        ad_storage: 'granted', analytics_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted'
-      });
-    }
-    const webinarEdition = '2026-10-17';
-    const editionEventId = (id, edition) => edition === webinarEdition ? id : `${webinarEdition}-${id}`;
-    const fallbackEventId = `anp-group-${Date.now()}-${crypto.randomUUID?.() || Math.random().toString(36).slice(2)}`;
-    const eventPayload = {
-      event: 'EntrouNoGrupo',
-      event_id: fallbackEventId,
-      webinar_edition: webinarEdition,
-      event_name: 'EntrouNoGrupo',
-      funnel: 'a_nova_psicologia',
-      destination: 'whatsapp_group',
-      source_url: location.href
-    };
-    if (localStorage.getItem('doco_cookie_consent') === 'granted') {
-      const gtm = document.createElement('script');
-      gtm.async = true;
-      gtm.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-WJ7MXFDT';
-      document.head.appendChild(gtm);
-    }
-
-    const query = new URLSearchParams(location.search);
-    let leadData = {};
-    try {
-      const savedLead = JSON.parse(sessionStorage.getItem('doco_anp_lead') || localStorage.getItem('doco_anp_lead') || '{}');
-      const isFresh = Number(savedLead.stored_at || 0) > Date.now() - (30 * 24 * 60 * 60 * 1000);
-      if (isFresh) {
-        leadData = {
-          name: String(savedLead.name || '').trim().slice(0, 200),
-          email: String(savedLead.email || '').trim().toLowerCase().slice(0, 320),
-          phone: String(savedLead.phone || '').replace(/\D/g, '').slice(0, 40),
-          eventId: String(editionEventId(savedLead.group_event_id || fallbackEventId, savedLead.webinar_edition)).slice(0, 200)
-        };
-      }
-    } catch (_) {}
-    const eventId = leadData.eventId || fallbackEventId;
-    eventPayload.event_id = eventId;
-    window.dataLayer.push(eventPayload);
-    const sha256 = async (value) => {
-      const bytes = new TextEncoder().encode(String(value || '').trim().toLowerCase());
-      const digest = await crypto.subtle.digest('SHA-256', bytes);
-      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-    };
-    const attributionKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'ttclid'];
-    const attribution = attributionKeys.reduce((result, key) => {
-      const value = query.get(key) || localStorage.getItem(`doco_last_${key}`) || sessionStorage.getItem(`doco_${key}`);
-      if (value) result[key] = value;
-      return result;
-    }, {});
-
-    // The legacy flag only proved that the router succeeded; it did not prove
-    // that Meta CAPI succeeded. Honor it for the router to avoid a replay, but
-    // let Meta retry independently.
-    const routerAlreadySent = localStorage.getItem('doco_anp_group_router_sent') === eventId
-      || localStorage.getItem('doco_anp_group_sent') === eventId;
-    const metaAlreadySent = localStorage.getItem('doco_anp_group_meta_sent') === eventId;
-    const trackingRequest = routerAlreadySent ? Promise.resolve() : fetch('/api/anp-events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      keepalive: true,
-      body: JSON.stringify({
-        event_name: 'EntrouNoGrupo',
-        event_id: eventId,
-        event_time: Math.floor(Date.now() / 1000),
-        source: 'website',
-        webinar_edition: webinarEdition,
-        source_url: location.href,
-        consent: localStorage.getItem('doco_cookie_consent') === 'granted',
-        name: leadData.name,
-        contact: {
-          name: leadData.name,
-          email: leadData.email,
-          phone: leadData.phone
-        },
-        ...attribution
-      })
-    }).then((response) => {
-      if (!response.ok) throw new Error(`Tracking HTTP ${response.status}`);
-      localStorage.setItem('doco_anp_group_router_sent', eventId);
-      sessionStorage.removeItem('doco_anp_lead');
-    }).catch(() => {
-      localStorage.setItem('doco_anp_group_pending', eventId);
-    });
-
-    const metaRequest = metaAlreadySent ? Promise.resolve() : Promise.all([
-      leadData.email ? sha256(leadData.email) : Promise.resolve(''),
-      leadData.phone ? sha256(leadData.phone.startsWith('55') ? leadData.phone : `55${leadData.phone}`) : Promise.resolve(''),
-      sha256(leadData.email || leadData.phone || eventId)
-    ]).then(([emailHash, phoneHash, externalId]) => fetch('/api/meta-capi', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      keepalive: true,
-      body: JSON.stringify({
-        event_name: 'EntrouNoGrupo',
-        event_id: eventId,
-        event_time: Math.floor(Date.now() / 1000),
-        action_source: 'website',
-        webinar_edition: webinarEdition,
-        event_source_url: location.href,
-        user_data: {
-          em: emailHash ? [emailHash] : undefined,
-          ph: phoneHash ? [phoneHash] : undefined,
-          external_id: [externalId],
-          client_user_agent: navigator.userAgent
-        },
-        custom_data: { content_name: 'A nova psicologia', funnel_stage: 'group_joined' }
-      })
-    })).then((response) => {
-      if (!response.ok) throw new Error(`Meta CAPI HTTP ${response.status}`);
-      localStorage.setItem('doco_anp_group_meta_sent', eventId);
-    }).catch(() => {
-      localStorage.setItem('doco_anp_group_meta_pending', eventId);
-    });
-
-    Promise.race([
-      Promise.allSettled([trackingRequest, metaRequest]),
-      new Promise((resolve) => window.setTimeout(resolve, 4000))
-    ]).finally(() => location.replace('https://chat.whatsapp.com/IzQCvx4bueYE0gxiTt7Ok9'));
-  </script>
+  <script src="../editions.js"></script>
+  <script src="../reliability.js"></script>
+  <script src="../bridge.js" defer></script>
   <style>
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3ede4; color: #1f2b22; font: 16px/1.5 Arial, sans-serif; text-align: center; }
     main { width: min(90%, 34rem); padding: 2rem; }
@@ -141,8 +16,8 @@
 </head>
 <body>
   <main>
-    <p>Registrando seu acesso e abrindo o grupo do WhatsApp…</p>
-    <p><a href="https://chat.whatsapp.com/IzQCvx4bueYE0gxiTt7Ok9">Clique aqui se o grupo não abrir automaticamente</a></p>
+    <p>Abrindo o grupo do WhatsApp…</p>
+    <p><a data-edition-link>Clique aqui se o grupo não abrir automaticamente</a></p>
   </main>
 </body>
 </html>
