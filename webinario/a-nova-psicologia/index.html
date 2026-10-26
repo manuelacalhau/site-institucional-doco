@@ -13,7 +13,7 @@
   <meta property="og:description" content="Aula online, ao vivo e gratuita para psicólogos com agenda cheia que querem ampliar a participação de pacientes particulares sem depender de mais sessões.">
   <meta property="og:url" content="https://agenciadoco.com.br/webinario/a-nova-psicologia/">
   <title>A nova psicologia | doco</title>
-  <script src="editions.js"></script>
+  <script src="editions.js?v=20261031-2"></script>
   <script src="reliability.js"></script>
   <script>document.documentElement.classList.add('motion-ready');</script>
   <script>
@@ -959,7 +959,7 @@
   </aside>
 
   <script>
-    const webinarConfig = ANPEditions.resolve(window.location.search, Date.now(), ANPEditions.config.current);
+    const webinarConfig = ANPEditions.resolve("?edition=" + encodeURIComponent(ANPEditions.config.current));
     const webinarEdition = webinarConfig?.id || ANPEditions.config.current;
     const trackingContext = { webinar_edition: webinarEdition, page_type: 'webinar', page_name: 'a_nova_psicologia', funnel_stage: 'lead_capture' };
     const cookieConsent = document.querySelector('[data-cookie-consent]');
