@@ -13,7 +13,7 @@
   <meta property="og:description" content="Aula online, ao vivo e gratuita para psicólogos com agenda cheia que querem ampliar a participação de pacientes particulares sem depender de mais sessões.">
   <meta property="og:url" content="https://agenciadoco.com.br/webinario/a-nova-psicologia/">
   <title>A nova psicologia | doco</title>
-  <script src="editions.js?v=20261031-2"></script>
+  <script src="editions.js?v=20261031-3"></script>
   <script src="reliability.js"></script>
   <script>document.documentElement.classList.add('motion-ready');</script>
   <script>
@@ -53,10 +53,10 @@
         }
         window.fbq('init', pixelId);
         window.fbq('set', 'autoConfig', false, pixelId);
-        window.fbq('track', 'PageView', {funnel:'a-nova-psicologia',webinar_edition:ANPEditions.resolve(window.location.search)?.id}, { eventID: this.pageViewEventId });
+        window.fbq('track', 'PageView', {funnel:'a-nova-psicologia',webinar_edition:ANPEditions.resolveCurrent()?.id}, { eventID: this.pageViewEventId });
       },
       load() {
-        if (this.loaded || !ANP.consent() || !ANPEditions.resolve(window.location.search)) return;
+        if (this.loaded || !ANP.consent() || !ANPEditions.resolveCurrent()) return;
         this.loaded = true;
         this.prepareMetaPixel();
         window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
@@ -959,7 +959,7 @@
   </aside>
 
   <script>
-    const webinarConfig = ANPEditions.resolve("?edition=" + encodeURIComponent(ANPEditions.config.current));
+    const webinarConfig = ANPEditions.resolveCurrent();
     const webinarEdition = webinarConfig?.id || ANPEditions.config.current;
     const trackingContext = { webinar_edition: webinarEdition, page_type: 'webinar', page_name: 'a_nova_psicologia', funnel_stage: 'lead_capture' };
     const cookieConsent = document.querySelector('[data-cookie-consent]');
@@ -973,7 +973,10 @@
           ad_storage: granted ? 'granted' : 'denied', analytics_storage: granted ? 'granted' : 'denied',
           ad_user_data: granted ? 'granted' : 'denied', ad_personalization: granted ? 'granted' : 'denied'
         });
-        if (granted) window.docoTracking.load();
+        if (granted) {
+          window.docoTracking.load();
+          window.dispatchEvent(new Event('doco:measurement-consent'));
+        }
         cookieConsent.hidden = true;
       });
     });
@@ -1136,6 +1139,10 @@
       });
 
       if (!response.ok) throw new Error(`Meta CAPI respondeu com HTTP ${response.status}`);
+      const acknowledgement = await response.json();
+      if (acknowledgement.ok !== true || !(acknowledgement.events_received > 0)) {
+        throw new Error('Meta CAPI não confirmou o recebimento do evento');
+      }
     };
 
     const reportCapiError = (eventName, eventId) => {
@@ -1148,22 +1155,21 @@
     };
 
     const pageViewEventId = window.docoTracking.pageViewEventId;
-    window.docoTracking.push('webinar_view', {
-      ...trackingContext,
-      ...attribution,
-      event_id: pageViewEventId
-    });
-    // O contêiner e a CAPI só iniciam após autorização de medição.
-    window.docoTracking.load();
-    sendMetaCapiEvent({
-      eventName: 'PageView',
-      eventId: pageViewEventId,
-      customData: {
-        content_name: 'A nova psicologia',
-        content_category: 'webinar',
-        status: 'page_viewed'
-      }
-    }).catch(() => reportCapiError('PageView', pageViewEventId));
+    let pageViewTrackingStarted = false;
+    const trackConsentedPageView = () => {
+      if (pageViewTrackingStarted || !hasMeasurementConsent() || !webinarConfig) return;
+      pageViewTrackingStarted = true;
+      window.docoTracking.push('webinar_view', {
+        ...trackingContext, ...ANP.attribution(window.location.search), event_id: pageViewEventId
+      });
+      window.docoTracking.load();
+      sendMetaCapiEvent({
+        eventName: 'PageView', eventId: pageViewEventId,
+        customData: {content_name: 'A nova psicologia', content_category: 'webinar', status: 'page_viewed'}
+      }).catch(() => reportCapiError('PageView', pageViewEventId));
+    };
+    window.addEventListener('doco:measurement-consent', trackConsentedPageView);
+    trackConsentedPageView();
 
     const sendMetaCapiLead = (leadData, eventId) => sendMetaCapiEvent({
       eventName: 'Lead',
