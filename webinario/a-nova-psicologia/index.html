@@ -948,6 +948,7 @@
     <div class="container footer-inner">
       <img src="assets/logo-doco-branca.png" alt="doco">
       <p>© 2026 doco. Comunicação responsável, sem promessa de resultados.</p>
+      <button type="button" class="cookie-action" data-open-privacy>Preferências de privacidade</button>
     </div>
   </footer>
   <aside class="cookie-consent" data-cookie-consent hidden aria-label="Preferências de privacidade">
@@ -963,6 +964,10 @@
     const webinarEdition = webinarConfig?.id || ANPEditions.config.current;
     const trackingContext = { webinar_edition: webinarEdition, page_type: 'webinar', page_name: 'a_nova_psicologia', funnel_stage: 'lead_capture' };
     const cookieConsent = document.querySelector('[data-cookie-consent]');
+    document.querySelector('[data-open-privacy]').addEventListener('click', () => {
+      cookieConsent.hidden = false;
+      cookieConsent.querySelector('[data-consent]').focus();
+    });
     const savedConsent = ANP.local.getItem('doco_cookie_consent');
     if (!savedConsent) cookieConsent.hidden = false;
     document.querySelectorAll('[data-consent]').forEach((button) => {
@@ -1134,7 +1139,9 @@
           action_source: 'website',
           event_source_url: ANP.sourceURL(window.location.href),
           user_data: userData,
-          custom_data: {...customData, webinar_edition: webinarEdition, funnel: 'a-nova-psicologia', measurement_consent: true}
+          custom_data: {...customData, webinar_edition: webinarEdition, funnel: 'a-nova-psicologia', measurement_consent: true},
+          ...(/^TEST[0-9]+$/.test(query.get('test_event_code') || '')
+            ? {test_event_code: query.get('test_event_code')} : {})
         })
       });
 
