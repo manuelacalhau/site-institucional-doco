@@ -1,0 +1,3 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+* * * * * www-data php /var/www/html/var/anp-editions/run.php >> /var/www/html/var/anp-editions/cron.log 2>&1
