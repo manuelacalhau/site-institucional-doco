@@ -1210,14 +1210,22 @@
     };
 
     const sendMauticLead = async (leadData) => {
+      const configResponse = await ANP.request('/api/mautic-webinar-config', { cache: 'no-store' });
+      if (!configResponse.ok) throw new Error('Configuração da edição indisponível');
+      const config = await configResponse.json();
+      const editionForm = config.editions?.[webinarEdition];
+      if (!editionForm || !/^[0-9]{1,8}$/.test(String(editionForm.formId)) ||
+          !/^[a-z0-9_]+$/i.test(editionForm.formName || '')) {
+        throw new Error('Formulário da edição indisponível');
+      }
       const mauticData = new URLSearchParams();
       mauticData.set('mauticform[firstname]', leadData.name);
       mauticData.set('mauticform[email]', leadData.email);
       mauticData.set('mauticform[phone]', leadData.phone);
-      mauticData.set('mauticform[formId]', '12');
-      mauticData.set('mauticform[formName]', 'anp07112026webinarioanovapsicologia');
+      mauticData.set('mauticform[formId]', String(editionForm.formId));
+      mauticData.set('mauticform[formName]', editionForm.formName);
 
-      const response = await ANP.request(mauticEndpoint, {
+      const response = await ANP.request(mauticEndpoint + '?formId=' + encodeURIComponent(editionForm.formId), {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
         body: mauticData,
