@@ -1,5 +1,5 @@
 {
-  "current": "2026-10-31",
+  "current": "2026-11-07",
   "funnel": "a-nova-psicologia",
   "editions": {
     "2026-10-17": {
@@ -15,6 +15,14 @@
       "timezone": "America/Sao_Paulo",
       "startsAt": "2026-10-31T14:00:00-03:00",
       "endsAt": "2026-10-31T15:30:00-03:00",
+      "groupUrl": "https://chat.whatsapp.com/LVFglFqOuVH69ED6QOxqlW",
+      "meetUrl": "https://meet.google.com/yir-bxfr-zvv"
+    },
+    "2026-11-07": {
+      "status": "scheduled",
+      "timezone": "America/Sao_Paulo",
+      "startsAt": "2026-11-07T14:00:00-03:00",
+      "endsAt": "2026-11-07T15:30:00-03:00",
       "groupUrl": "https://chat.whatsapp.com/LVFglFqOuVH69ED6QOxqlW",
       "meetUrl": "https://meet.google.com/yir-bxfr-zvv"
     }
