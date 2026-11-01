@@ -27,53 +27,50 @@ function renderEmail(array $template,string $edition,array $event):array {
  if(preg_match('/(?:outubro|novembro|\b2026\b|\d{2}\/\d{2})/iu',strip_tags(preg_replace('/https?:[^\s<)]+/','',$plain))))throw new RuntimeException('Date in reusable text');
  return [$html,$plain];
 }
-$public=['version'=>1,'current'=>$registry['current'],'editions'=>[]];
+$public=['version'=>2,'current'=>$registry['current'],'editions'=>[]];
 foreach($registry['editions'] as $edition=>$event){
  if(!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$edition))throw new RuntimeException('Invalid edition');
  if(($event['status']??'')!=='scheduled')continue;
- $start=new DateTimeImmutable($event['startsAt']);$end=new DateTimeImmutable($event['endsAt']);
- if($end<=$now)continue;
+ $start=new DateTimeImmutable($event['startsAt']);$end=new DateTimeImmutable($event['endsAt']);if($end<=$now)continue;
  if($start->setTimezone($brazil)->format('Y-m-d H:i')!==$edition.' 14:00'||$end<=$start||($event['timezone']??'')!=='America/Sao_Paulo')throw new RuntimeException('Invalid date/time');
  if(!preg_match('~^https://chat\.whatsapp\.com/[A-Za-z0-9]+$~D',$event['groupUrl'])||!preg_match('~^https://meet\.google\.com/[a-z-]+$~D',$event['meetUrl']))throw new RuntimeException('Invalid links');
- if(isset($state['editions'][$edition])){
-  $entry=$state['editions'][$edition];
-  if($entry['config_hash']!==hash('sha256',json_encode($event)))throw new RuntimeException('Existing edition config changed; review required: '.$edition);
- }else{
+ $entry=$state['editions'][$edition]??null;
+ if($entry&&$entry['config_hash']!==hash('sha256',json_encode($event)))throw new RuntimeException('Existing edition config changed; review required: '.$edition);
+ if(!$entry||($entry['layout']??1)!==2){
+  if($entry&&!is_file($dir.'/before-layout-v2.json')){file_put_contents($dir.'/before-layout-v2.json',json_encode(['state'=>$state,'emails'=>$c->fetchAllAssociative('SELECT * FROM mautic_emails WHERE id BETWEEN 71 AND 78'),'form_actions'=>$c->fetchAllAssociative('SELECT * FROM mautic_form_actions WHERE form_id=12'),'campaign'=>$c->fetchAssociative('SELECT * FROM mautic_campaigns WHERE id=36')],JSON_UNESCAPED_UNICODE));}
   $day=(new DateTimeImmutable($edition))->format('d/m/Y');$alias='anp-'.str_replace('-','',$edition).'-inscritos';
-  $c->beginTransaction();try {
-   $segment=(int)$c->fetchOne('SELECT id FROM mautic_lead_lists WHERE alias=?',[$alias]);
-   if(!$segment){$row=fresh($c->fetchAssociative('SELECT * FROM mautic_lead_lists WHERE id=33'),$nowSql);$row=array_merge($row,['name'=>'[ANP '.$day.'] Inscritos','public_name'=>'Webinário A Nova Psicologia — '.$day,'alias'=>$alias,'description'=>'Inscritos exclusivos desta edição; histórico de outras edições preservado.','filters'=>serialize([]),'is_global'=>0,'last_built_date'=>null]);$segment=insertRow($c,'lead_lists',$row);}
-   $form=$edition==='2026-11-07'?12:0;
-   if(!$form){$row=fresh($c->fetchAssociative('SELECT * FROM mautic_forms WHERE id=12'),$nowSql);$row=array_merge($row,['name'=>'[ANP '.$day.'] Webinário A Nova Psicologia','alias'=>'anp'.str_replace('-','',$edition),'cached_html'=>null,'publish_up'=>null,'publish_down'=>sqlTime($end)]);$form=insertRow($c,'forms',$row);foreach($c->fetchAllAssociative('SELECT * FROM mautic_form_fields WHERE form_id=12 ORDER BY field_order')as $field){$field=fresh($field,$nowSql);$field['form_id']=$form;insertRow($c,'form_fields',$field);}foreach($c->fetchAllAssociative('SELECT * FROM mautic_form_actions WHERE form_id=12 ORDER BY action_order')as $action){$action=fresh($action,$nowSql);$action['form_id']=$form;if($action['type']==='lead.changelist'){$action['name']='['.$day.'] Adicionar inscrito à edição';$action['properties']=serialize(['addToLists'=>[$segment],'removeFromLists'=>[]]);}insertRow($c,'form_actions',$action);}}
-   $camp=fresh($c->fetchAssociative('SELECT * FROM mautic_campaigns WHERE id=35'),$nowSql);$camp=array_merge($camp,['name'=>'[ANP '.$day.'] Aquecimento — 8 e-mails','description'=>'DX após inscrição; D5 a D1 às 14h; D0 às 9h e 13h de Brasília. Segmento exclusivo; lembretes expiram. Automação ANP v1.','is_published'=>0,'allow_restart'=>0,'publish_up'=>null,'publish_down'=>sqlTime($end),'canvas_settings'=>serialize([])]);$campaign=insertRow($c,'campaigns',$camp);
-   $c->insert('mautic_campaign_leadlist_xref',['campaign_id'=>$campaign,'leadlist_id'=>$segment]);$c->insert('mautic_campaign_form_xref',['campaign_id'=>$campaign,'form_id'=>$form]);
-   $ids=[];$nodes=[['id'=>'lists','positionX'=>'200','positionY'=>'40'],['id'=>'forms','positionX'=>'600','positionY'=>'40']];$connections=[];$eventTemplate=$c->fetchAssociative('SELECT * FROM mautic_campaign_events WHERE id=255');$emailTemplate=$c->fetchAssociative('SELECT * FROM mautic_emails WHERE id=66');$slots=schedule($edition);
-   foreach($templates as $i=>$t){$slot=$slots[$i];[$html,$plain]=renderEmail($t,$edition,$event);$email=fresh($emailTemplate,$nowSql);$email=array_merge($email,['name'=>'[ANP '.$day.'] '.$t['key'],'description'=>'Modelo reutilizável sem datas no conteúdo.','subject'=>$t['subject'],'custom_html'=>$html,'plain_text'=>$plain,'content'=>null,'dynamic_content'=>serialize([]),'utm_tags'=>serialize(['utmSource'=>'mautic','utmMedium'=>'email','utmCampaign'=>'anp_'.str_replace('-','',$edition),'utmContent'=>$t['key']]),'is_published'=>1,'publish_up'=>$slot['at']?sqlTime($slot['at']):null,'publish_down'=>sqlTime($slot['until']),'read_count'=>0,'sent_count'=>0,'variant_sent_count'=>0,'variant_read_count'=>0,'revision'=>1,'variant_parent_id'=>null,'translation_parent_id'=>null]);$emailId=insertRow($c,'emails',$email);
-    $ev=fresh($eventTemplate,$nowSql);$ev=array_merge($ev,['campaign_id'=>$campaign,'parent_id'=>null,'name'=>$t['key'].' — '.$t['subject'],'event_order'=>$i+1,'trigger_mode'=>$i===0?'immediate':'date','trigger_date'=>$slot['at']?sqlTime($slot['at']):null,'trigger_interval'=>0,'channel_id'=>$emailId,'temp_id'=>'anp'.$campaign.'_'.$t['key']]);$p=unserialize($eventTemplate['properties'],['allowed_classes'=>['DateTime']]);foreach(['id','tempId','contactLog','changes']as $key)unset($p[$key]);$p=array_merge($p,['name'=>$ev['name'],'order'=>$i,'email'=>(string)$emailId,'channelId'=>$emailId,'campaignId'=>(string)$campaign,'triggerMode'=>$ev['trigger_mode'],'triggerDate'=>$slot['at']?new DateTime(sqlTime($slot['at']),new DateTimeZone('UTC')):null,'triggerInterval'=>0,'email_type'=>'marketing','properties'=>['email'=>(string)$emailId,'email_type'=>'marketing','priority'=>'2','attempts'=>'3'],'anchor'=>'leadsource','anchorEventType'=>'source']);$ev['properties']=serialize($p);$evId=insertRow($c,'campaign_events',$ev);$p['id']=$evId;$c->update('mautic_campaign_events',['properties'=>serialize($p)],['id'=>$evId]);$ids[$t['key']]=['email'=>$emailId,'event'=>$evId,'at'=>$ev['trigger_date'],'until'=>$email['publish_down']];$nodes[]=['id'=>(string)$evId,'positionX'=>(string)(50+$i*260),'positionY'=>'230'];foreach(['lists','forms']as $source)$connections[]=['sourceId'=>$source,'targetId'=>(string)$evId,'anchors'=>['source'=>'leadsource','target'=>'top']];
+  $c->beginTransaction();try{
+   if(!$entry){
+    $segment=(int)$c->fetchOne('SELECT id FROM mautic_lead_lists WHERE alias=?',[$alias]);
+    if(!$segment){$row=fresh($c->fetchAssociative('SELECT * FROM mautic_lead_lists WHERE id=33'),$nowSql);$row=array_merge($row,['name'=>'[ANP '.$day.'] Inscritos','public_name'=>'Webinário A Nova Psicologia — '.$day,'alias'=>$alias,'description'=>'Inscritos exclusivos desta edição; histórico preservado.','filters'=>serialize([]),'is_global'=>0,'last_built_date'=>null]);$segment=insertRow($c,'lead_lists',$row);}
+    $row=fresh($c->fetchAssociative('SELECT * FROM mautic_forms WHERE id=12'),$nowSql);$row=array_merge($row,['name'=>'[ANP '.$day.'] Webinário A Nova Psicologia','alias'=>'anp'.str_replace('-','',$edition),'cached_html'=>null,'publish_up'=>null,'publish_down'=>sqlTime($end)]);$form=insertRow($c,'forms',$row);
+    foreach($c->fetchAllAssociative('SELECT * FROM mautic_form_fields WHERE form_id=12 ORDER BY field_order')as $field){$field=fresh($field,$nowSql);$field['form_id']=$form;insertRow($c,'form_fields',$field);}
+    foreach($c->fetchAllAssociative('SELECT * FROM mautic_form_actions WHERE form_id=12 ORDER BY action_order')as $action){$action=fresh($action,$nowSql);$action['form_id']=$form;if($action['type']==='lead.changelist'){$action['name']='['.$day.'] Adicionar inscrito à edição';$action['properties']=serialize(['addToLists'=>[$segment],'removeFromLists'=>[]]);}insertRow($c,'form_actions',$action);}
+    $ids=[];$slots=schedule($edition);$emailTemplate=$c->fetchAssociative('SELECT * FROM mautic_emails WHERE id=66');
+    foreach($templates as $i=>$t){$slot=$slots[$i];[$html,$plain]=renderEmail($t,$edition,$event);$email=fresh($emailTemplate,$nowSql);$email=array_merge($email,['name'=>'[ANP '.$day.'] '.$t['key'],'description'=>$i===0?'E-mail de campanha; confirmação imediata pelo formulário.':'E-mail de segmento; ajustar segmento e janela de publicação para cada edição.','subject'=>$t['subject'],'custom_html'=>$html,'plain_text'=>$plain,'content'=>null,'dynamic_content'=>serialize([]),'utm_tags'=>serialize(['utmSource'=>'mautic','utmMedium'=>'email','utmCampaign'=>'anp_'.str_replace('-','',$edition),'utmContent'=>$t['key']]),'email_type'=>$i===0?'template':'list','is_published'=>1,'publish_up'=>$slot['at']?sqlTime($slot['at']):null,'publish_down'=>sqlTime($slot['until']),'read_count'=>0,'sent_count'=>0,'variant_sent_count'=>0,'variant_read_count'=>0,'revision'=>1,'variant_parent_id'=>null,'translation_parent_id'=>null]);$emailId=insertRow($c,'emails',$email);$ids[$t['key']]=['email'=>$emailId,'at'=>$email['publish_up'],'until'=>$email['publish_down']];}
+    $entry=['segment'=>$segment,'form'=>$form,'emails'=>$ids,'config_hash'=>hash('sha256',json_encode($event))];
    }
-   $c->update('mautic_campaigns',['canvas_settings'=>serialize(['nodes'=>$nodes,'connections'=>$connections])],['id'=>$campaign]);$c->commit();
+   if(isset($entry['campaign'])){$c->update('mautic_campaigns',['is_published'=>0,'description'=>'Arquivada: substituída por DX no formulário e sete e-mails de segmento. Histórico preservado.'],['id'=>$entry['campaign']]);$entry['legacy_campaign']=$entry['campaign'];unset($entry['campaign']);}
+   foreach($entry['emails'] as $key=>&$message){$emailId=(int)$message['email'];$isWelcome=$key==='DX';$c->update('mautic_emails',['email_type'=>$isWelcome?'template':'list','date_modified'=>$nowSql],['id'=>$emailId]);
+    if(!$isWelcome&&!$c->fetchOne('SELECT COUNT(*) FROM mautic_email_list_xref WHERE email_id=? AND leadlist_id=?',[$emailId,$entry['segment']]))$c->insert('mautic_email_list_xref',['email_id'=>$emailId,'leadlist_id'=>$entry['segment']]);
+    if(isset($message['event'])){$message['legacy_event']=$message['event'];unset($message['event']);}
+   }unset($message);
+   $welcomeActions=$c->fetchAllAssociative("SELECT id FROM mautic_form_actions WHERE form_id=? AND type='email.send.lead'",[$entry['form']]);if(count($welcomeActions)>1)throw new RuntimeException('Duplicate welcome action');
+   $welcome=['name'=>'DX — Enviar boas-vindas com acesso ao grupo','description'=>'E-mail de campanha enviado ao contato após cada inscrição bem-sucedida.','properties'=>serialize(['email'=>(string)$entry['emails']['DX']['email']])];
+   if($welcomeActions)$c->update('mautic_form_actions',$welcome,['id'=>$welcomeActions[0]['id']]);else{$welcome['form_id']=$entry['form'];$welcome['type']='email.send.lead';$welcome['action_order']=(int)$c->fetchOne('SELECT MAX(action_order) FROM mautic_form_actions WHERE form_id=?',[$entry['form']])+1;insertRow($c,'form_actions',$welcome);}
+   $entry['layout']=2;$c->commit();
   }catch(Throwable $e){$c->rollBack();throw $e;}
-  $entry=['segment'=>$segment,'form'=>$form,'campaign'=>$campaign,'emails'=>$ids,'config_hash'=>hash('sha256',json_encode($event))];
   if($selfTest){
-   if($form===12||$segment===33||count($ids)!==8)throw new RuntimeException('Future edition not isolated');
-   $action=$c->fetchOne("SELECT properties FROM mautic_form_actions WHERE form_id=? AND type='lead.changelist'",[$form]);if(unserialize($action)['addToLists']!==[$segment])throw new RuntimeException('Future action wrong segment');
-   $model=$container->get('mautic.form.model.form');$generated=$model->generateHtml($model->getEntity($form));if(strpos($generated,'mauticform[formId]')===false)throw new RuntimeException('Future form HTML failed');
-   if($ids['D5']['at']!=='2030-11-02 17:00:00'||$ids['D0_09']['at']!=='2030-11-07 12:00:00'||$ids['D0_13']['at']!=='2030-11-07 16:00:00')throw new RuntimeException('Future schedule wrong');
-   $c->rollBack();if($c->fetchOne('SELECT id FROM mautic_lead_lists WHERE alias=?',[$alias]))throw new RuntimeException('Test did not roll back');echo 'PASS future edition creates isolated segment, native form, campaign and eight emails; correct schedule; all test rows rolled back'.PHP_EOL;exit(0);
+   if($entry['form']===12||$entry['segment']===33||count($entry['emails'])!==8)throw new RuntimeException('Future edition not isolated');
+   $count=(int)$c->fetchOne('SELECT COUNT(*) FROM mautic_email_list_xref WHERE leadlist_id=?',[$entry['segment']]);if($count!==7)throw new RuntimeException('Seven segment emails required');
+   $action=$c->fetchOne("SELECT properties FROM mautic_form_actions WHERE form_id=? AND type='email.send.lead'",[$entry['form']]);if((int)unserialize($action)['email']!==$entry['emails']['DX']['email'])throw new RuntimeException('Future welcome action wrong');
+   $model=$container->get('mautic.form.model.form');$html=$model->generateHtml($model->getEntity($entry['form']));if(strpos($html,'mauticform[formId]')===false)throw new RuntimeException('Future form HTML failed');
+   if($entry['emails']['D5']['at']!=='2030-11-02 17:00:00'||$entry['emails']['D0_09']['at']!=='2030-11-07 12:00:00'||$entry['emails']['D0_13']['at']!=='2030-11-07 16:00:00')throw new RuntimeException('Future schedule wrong');
+   $c->rollBack();if($c->fetchOne('SELECT id FROM mautic_lead_lists WHERE alias=?',[$alias]))throw new RuntimeException('Test did not roll back');echo 'PASS future edition: exclusive segment, native form welcome action, one campaign email and seven segment emails; correct dates; all test rows rolled back'.PHP_EOL;exit(0);
   }
-  $state['editions'][$edition]=$entry;file_put_contents($stateFile.'.tmp',json_encode($state,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE));rename($stateFile.'.tmp',$stateFile);
-  echo 'CREATED '.$edition.' '.json_encode($entry).PHP_EOL;
+  $state['editions'][$edition]=$entry;$state['version']=2;file_put_contents($stateFile.'.tmp',json_encode($state,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE));rename($stateFile.'.tmp',$stateFile);echo 'CONFIGURED_LAYOUT_V2 '.$edition.PHP_EOL;
  }
- // Use the native model to build the result table and cached form HTML.
- $model=$container->get('mautic.form.model.form');$formEntity=$model->getEntity($entry['form']);$model->createTableSchema($formEntity);$html=$model->generateHtml($formEntity);
- $dom=new DOMDocument();@$dom->loadHTML($html);$xpath=new DOMXPath($dom);$formName=$xpath->evaluate('string(//input[@name="mauticform[formName]"]/@value)');if(!$formName)throw new RuntimeException('Missing generated form name');
+ $model=$container->get('mautic.form.model.form');$formEntity=$model->getEntity($entry['form']);$model->createTableSchema($formEntity);$html=$model->generateHtml($formEntity);$dom=new DOMDocument();@$dom->loadHTML($html);$formName=(new DOMXPath($dom))->evaluate('string(//input[@name="mauticform[formName]"]/@value)');if(!$formName)throw new RuntimeException('Missing generated form name');
  $public['editions'][$edition]=['formId'=>$entry['form'],'formName'=>$formName,'segmentId'=>$entry['segment']];
- // Only campaigns explicitly created by this provisioner may be enabled.
- if(is_file($dir.'/enabled') && empty($entry['activated'])) {
-  $c->update('mautic_campaigns',['is_published'=>1],['id'=>$entry['campaign']]);
-  $state['editions'][$edition]['activated']=true;
-  file_put_contents($stateFile.'.tmp',json_encode($state,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE));rename($stateFile.'.tmp',$stateFile);
- }
 }
-$path=MAUTIC_ROOT_DIR.'/media/images/anp-editions.json';file_put_contents($path.'.tmp',json_encode($public,JSON_UNESCAPED_UNICODE));chmod($path.'.tmp',0644);rename($path.'.tmp',$path);
-echo 'READY '.json_encode($public,JSON_UNESCAPED_UNICODE).PHP_EOL;
+$path=MAUTIC_ROOT_DIR.'/media/images/anp-editions.json';file_put_contents($path.'.tmp',json_encode($public,JSON_UNESCAPED_UNICODE));chmod($path.'.tmp',0644);rename($path.'.tmp',$path);echo 'READY '.json_encode($public,JSON_UNESCAPED_UNICODE).PHP_EOL;
