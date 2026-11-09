@@ -5,16 +5,17 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'webinario/a-nova-psicologia/index.html'), 'utf8');
 const editions = require('../webinario/a-nova-psicologia/editions.js');
-const now = Date.parse('2026-10-26T18:00:00-03:00');
+const now = Date.parse('2026-11-09T12:00:00-03:00');
 const api = {
   ...editions,
   resolve: search => editions.resolve(search, now),
   resolveCurrent: () => editions.resolveCurrent(now)
 };
 assert.equal(api.resolve(''), null, 'historical unversioned bridges stay closed');
-assert.equal(api.resolveCurrent().id, '2026-10-31');
+assert.equal(api.resolveCurrent().id, '2026-11-14');
 assert.equal(api.resolve('?edition=2026-10-17'), null);
-assert.equal(editions.resolveCurrent(Date.parse('2026-10-31T15:30:00-03:00')), null);
+assert.equal(api.resolve('?edition=2026-11-07'), null, 'previous edition bridge remains expired');
+assert.equal(editions.resolveCurrent(Date.parse('2026-11-14T15:30:00-03:00')), null);
 const head = html.slice(html.indexOf('    window.dataLayer ='), html.indexOf('\n  </script>', html.indexOf('    window.dataLayer =')));
 const pageView = html.slice(html.indexOf('    const pageViewEventId = window.docoTracking.pageViewEventId;'), html.indexOf('\n    const sendMetaCapiLead ='));
 function run({ granted = false, search = '' } = {}) {
@@ -29,7 +30,7 @@ function run({ granted = false, search = '' } = {}) {
     document: {createElement: () => ({dataset: {}}), head: {appendChild: el => scripts.push(el.src)}},
     window: {location: {search}, addEventListener: (event, handler) => {listeners[event] = handler;}},
     hasMeasurementConsent: () => values.get('doco_cookie_consent') === 'granted',
-    webinarConfig: api.resolveCurrent(), trackingContext: {webinar_edition: '2026-10-31'}, attribution: {},
+    webinarConfig: api.resolveCurrent(), trackingContext: {webinar_edition: '2026-11-14'}, attribution: {},
     sendMetaCapiEvent: async event => calls.push(event), reportCapiError: () => assert.fail('CAPI should succeed')
   };
   vm.runInNewContext(head, context);
@@ -50,7 +51,7 @@ for (const search of ['', '?utm_campaign=anp_2026-10-17', '?edition=2026-10-17']
   assert.equal(r.calls.length, 1, 'one server PageView after accepting consent');
   const events = r.context.window.fbq.queue.filter(c => c[0] === 'track' && c[1] === 'PageView');
   assert.equal(events.length, 1);
-  assert.equal(events[0][2].webinar_edition, '2026-10-31');
+  assert.equal(events[0][2].webinar_edition, '2026-11-14');
   assert.equal(events[0][3].eventID, r.calls[0].eventId, 'Pixel and CAPI share deduplication ID');
 }
 const editionsSource = fs.readFileSync(path.join(root, 'webinario/a-nova-psicologia/editions.js'), 'utf8');
@@ -59,7 +60,7 @@ for (const pathname of ['/webinario/a-nova-psicologia/', '/webinario/a-nova-psic
   vm.runInNewContext(editionsSource, browser);
   const resolved = browser.window.ANPEditions.resolve('?utm_campaign=anp_2026-10-17', now);
   if (pathname.endsWith('/grupo/')) assert.equal(resolved, null, 'old bridges do not change edition');
-  else assert.equal(resolved.id, '2026-10-31', 'published GTM resolver reads current landing edition');
+  else assert.equal(resolved.id, '2026-11-14', 'published GTM resolver reads current landing edition');
 }
 const r = run({granted: true}); r.grant();
 assert.equal(r.calls.length, 1, 'saved consent: PageView once');
